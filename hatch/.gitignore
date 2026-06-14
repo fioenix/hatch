@@ -1,4 +1,6 @@
+# Build artifacts. Note: patterns must be anchored so they don't match the
+# cmd/hatch source directory.
 /bin/
-hatch
+/hatch
 *.out
 *.test
