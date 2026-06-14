@@ -17,13 +17,22 @@ type Agent struct {
 	RatePerMTok float64 `yaml:"rate_per_mtok,omitempty"` // USD per 1M tokens, for cost estimate when provider gives only tokens
 }
 
+// Authority captures a role's delegation-of-authority limits (docs/14).
+type Authority struct {
+	CanApprove         bool     `yaml:"can_approve,omitempty"`
+	BudgetAuthorityUSD float64  `yaml:"budget_authority_usd,omitempty"`
+	DecisionScope      []string `yaml:"decision_scope,omitempty"`
+}
+
 // Role is a bundle of responsibilities + boundaries + the L1 context to load.
 // The prose lives in roles/<id>.md; this is the structured binding metadata.
 type Role struct {
-	ID          string   `yaml:"id"`
-	Title       string   `yaml:"title,omitempty"`
-	File        string   `yaml:"file,omitempty"`         // roles/<id>.md (defaulted)
-	ContextRefs []string `yaml:"context_refs,omitempty"` // L1 SSOT paths compiled in
+	ID          string     `yaml:"id"`
+	Title       string     `yaml:"title,omitempty"`
+	File        string     `yaml:"file,omitempty"`         // roles/<id>.md (defaulted)
+	ContextRefs []string   `yaml:"context_refs,omitempty"` // L1 SSOT paths compiled in
+	ReportsTo   string     `yaml:"reports_to,omitempty"`   // parent role in the org chart
+	Authority   *Authority `yaml:"authority,omitempty"`
 }
 
 // Policy captures team-wide governance toggles enforced at gates.

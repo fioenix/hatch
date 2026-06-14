@@ -15,11 +15,22 @@ import (
 // an automatic escalation (like a teammate flagging a senior after retries).
 const escalationThreshold = 2
 
-// EscalateTarget resolves who escalations go to: the current on-call, else
-// registry policy, else the first conductor, else a human lead.
-func EscalateTarget(ws *config.Workspace) string {
+// EscalateTarget resolves the system-level escalation target (no ticket role).
+func EscalateTarget(ws *config.Workspace) string { return EscalateTargetForRole(ws, "") }
+
+// EscalateTargetForRole resolves who an escalation goes to: the current on-call,
+// else up the org chart (the manager of the ticket's role), else registry
+// policy, else the first conductor, else a human lead.
+func EscalateTargetForRole(ws *config.Workspace, role string) string {
 	if oc := oncall.Load(ws.Layout).Now(); oc != "" {
 		return oc
+	}
+	if role != "" {
+		if r, ok := ws.Registry.RoleByID(role); ok && r.ReportsTo != "" {
+			if as := ws.Registry.AgentsForRole(r.ReportsTo); len(as) > 0 {
+				return as[0].ID
+			}
+		}
 	}
 	if ws.Registry.Policy.EscalateTo != "" {
 		return ws.Registry.Policy.EscalateTo
@@ -33,7 +44,11 @@ func EscalateTarget(ws *config.Workspace) string {
 // Escalate records an escalation in the ledger and notifies the target on the
 // #escalations channel.
 func Escalate(ws *config.Workspace, lg *store.Ledger, ticket, from, why string) error {
-	target := EscalateTarget(ws)
+	role := ""
+	if t, ok, _ := store.NewBoard(ws.Layout).Find(ticket, ws.Workflow.LaneIDs()); ok {
+		role = t.Role
+	}
+	target := EscalateTargetForRole(ws, role)
 	if from == "" {
 		from = "orchestrator"
 	}

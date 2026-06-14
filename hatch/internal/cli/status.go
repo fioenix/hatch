@@ -48,6 +48,11 @@ func newStatusCmd() *cobra.Command {
 					fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", t.ID, prio, t.Role, assignee, t.Title)
 				}
 				tw.Flush()
+				for _, t := range tickets {
+					for _, e := range t.OpenExternal() {
+						fmt.Fprintf(out, "    ⚠ %s blocked-external: %s (owner %s, eta %s)\n", t.ID, e.What, e.Owner, e.ETA)
+					}
+				}
 			}
 			fmt.Fprintln(out)
 			printWIPWarnings(cmd, ws, b)

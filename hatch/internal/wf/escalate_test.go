@@ -40,3 +40,21 @@ func TestEscalateTargetPrefersOncall(t *testing.T) {
 		t.Fatalf("on-call should win escalation target, got %q", got)
 	}
 }
+
+func TestEscalateClimbsOrgChart(t *testing.T) {
+	l, _, err := scaffold.Init(scaffold.Options{Dir: t.TempDir(), Workflow: "scrum"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws, _ := config.Load(l)
+	// implementer reports to conductor (claude-code) in the default registry?
+	// set it explicitly for the test.
+	for i := range ws.Registry.Roles {
+		if ws.Registry.Roles[i].ID == "implementer" {
+			ws.Registry.Roles[i].ReportsTo = "conductor"
+		}
+	}
+	if got := EscalateTargetForRole(ws, "implementer"); got != "claude-code" {
+		t.Fatalf("escalation should climb to conductor agent claude-code, got %q", got)
+	}
+}

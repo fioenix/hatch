@@ -33,6 +33,19 @@ func ValidateRegistry(r *model.Registry) []Problem {
 		}
 		seenRole[role.ID] = true
 	}
+	// reporting lines must reference real roles and not cycle.
+	for _, role := range r.Roles {
+		if role.ReportsTo == "" {
+			continue
+		}
+		if !seenRole[role.ReportsTo] {
+			add("registry.yaml", fmt.Sprintf("role %q reports_to unknown role %q", role.ID, role.ReportsTo))
+			continue
+		}
+		if orgCycle(r, role.ID) {
+			add("registry.yaml", fmt.Sprintf("reports_to cycle involving role %q", role.ID))
+		}
+	}
 	seenAgent := map[string]bool{}
 	for _, a := range r.Agents {
 		if a.ID == "" {
@@ -53,6 +66,24 @@ func ValidateRegistry(r *model.Registry) []Problem {
 		}
 	}
 	return probs
+}
+
+// orgCycle reports whether following reports_to from start loops.
+func orgCycle(r *model.Registry, start string) bool {
+	seen := map[string]bool{}
+	cur := start
+	for cur != "" {
+		if seen[cur] {
+			return true
+		}
+		seen[cur] = true
+		role, ok := r.RoleByID(cur)
+		if !ok {
+			return false
+		}
+		cur = role.ReportsTo
+	}
+	return false
 }
 
 // ValidateWorkflow checks lanes, transitions and gates refer to each other

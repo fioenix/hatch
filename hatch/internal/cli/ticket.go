@@ -19,7 +19,71 @@ func newTicketCmd() *cobra.Command {
 		Aliases: []string{"t"},
 		Short:   "Create and move tickets on the board",
 	}
-	cmd.AddCommand(newTicketNewCmd(), newTicketClaimCmd(), newTicketMoveCmd(), newTicketShowCmd())
+	cmd.AddCommand(newTicketNewCmd(), newTicketClaimCmd(), newTicketMoveCmd(), newTicketShowCmd(), newTicketExtdepCmd())
+	return cmd
+}
+
+func newTicketExtdepCmd() *cobra.Command {
+	var add, owner, eta, resolve string
+	cmd := &cobra.Command{
+		Use:   "extdep <id>",
+		Short: "Manage external/cross-team blockers on a ticket",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			b := store.NewBoard(ws.Layout)
+			t, ok, err := b.Find(args[0], ws.Workflow.LaneIDs())
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("ticket %s not found", args[0])
+			}
+			out := cmd.OutOrStdout()
+			switch {
+			case add != "":
+				t.BlockedByExternal = append(t.BlockedByExternal, model.ExternalBlocker{
+					What: add, Owner: owner, ETA: eta, Status: "waiting",
+				})
+			case resolve != "":
+				found := false
+				for i := range t.BlockedByExternal {
+					if t.BlockedByExternal[i].What == resolve {
+						t.BlockedByExternal[i].Status = "received"
+						found = true
+					}
+				}
+				if !found {
+					return fmt.Errorf("no external blocker matching %q", resolve)
+				}
+			default:
+				if len(t.BlockedByExternal) == 0 {
+					fmt.Fprintln(out, "no external blockers")
+					return nil
+				}
+				for _, e := range t.BlockedByExternal {
+					fmt.Fprintf(out, "- [%s] %s (owner %s, eta %s)\n", e.Status, e.What, e.Owner, e.ETA)
+				}
+				return nil
+			}
+			if _, err := b.Write(t); err != nil {
+				return err
+			}
+			_ = store.NewLedger(ws.Layout).Append(model.Entry{
+				Agent: "human:operator", Ticket: t.ID, Action: model.ActNote,
+				Why: "external dependency updated",
+			})
+			fmt.Fprintf(out, "updated external blockers on %s\n", t.ID)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&add, "add", "", "add an external blocker with this description")
+	cmd.Flags().StringVar(&owner, "owner", "", "blocker owner (e.g. human:vendor)")
+	cmd.Flags().StringVar(&eta, "eta", "", "expected resolution date")
+	cmd.Flags().StringVar(&resolve, "resolve", "", "mark a blocker (by description) received")
 	return cmd
 }
 

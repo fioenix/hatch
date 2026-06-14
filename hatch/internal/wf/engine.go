@@ -62,10 +62,13 @@ func Move(ws *config.Workspace, b *store.Board, lg *store.Ledger, ticketID strin
 			opt.ByRole, from, opt.To, strings.Join(tr.By, ", "))
 	}
 
-	// depends_on must be done before claiming into an active lane.
+	// depends_on + external blockers must be cleared before claiming.
 	if tr.Action == model.ActClaim {
 		if err := checkDependencies(ws, b, t); err != nil {
 			return nil, err
+		}
+		if open := t.OpenExternal(); len(open) > 0 {
+			return nil, fmt.Errorf("ticket %s blocked by external: %s", t.ID, open[0].What)
 		}
 	}
 

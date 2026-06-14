@@ -14,6 +14,15 @@ type Claim struct {
 	TS    string `yaml:"ts"`
 }
 
+// ExternalBlocker is a dependency on something outside the squad (a vendor,
+// another team, a human approval) — surfaced as risk, not auto-resolved.
+type ExternalBlocker struct {
+	What   string `yaml:"what"`
+	Owner  string `yaml:"owner,omitempty"`
+	ETA    string `yaml:"eta,omitempty"`
+	Status string `yaml:"status,omitempty"` // waiting | received
+}
+
 // Ticket mirrors spec/ticket.schema.md. The directory it lives in (the lane)
 // is the source of truth for its lifecycle state; Status must agree with it.
 type Ticket struct {
@@ -29,8 +38,10 @@ type Ticket struct {
 	ContextRefs []string `yaml:"context_refs,omitempty"`
 	Claim       *Claim   `yaml:"claim,omitempty"`
 	DoD         []string `yaml:"dod,omitempty"`
-	Created     string   `yaml:"created,omitempty"`
-	Updated     string   `yaml:"updated,omitempty"`
+
+	BlockedByExternal []ExternalBlocker `yaml:"blocked_by_external,omitempty"`
+	Created           string            `yaml:"created,omitempty"`
+	Updated           string            `yaml:"updated,omitempty"`
 
 	// Body and Lane are populated by the store, not the frontmatter.
 	Body string `yaml:"-"`
@@ -39,3 +50,14 @@ type Ticket struct {
 
 // Filename is the canonical file name for a ticket on the board.
 func (t Ticket) Filename() string { return t.ID + ".md" }
+
+// OpenExternal returns external blockers not yet received.
+func (t Ticket) OpenExternal() []ExternalBlocker {
+	var out []ExternalBlocker
+	for _, e := range t.BlockedByExternal {
+		if e.Status != "received" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
