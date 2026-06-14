@@ -42,6 +42,8 @@ Orchestrator tự spawn đúng agent cho đúng ticket (xem [orchestrator](07-or
 
 **Tiêu chí xong:** từ một backlog, `hatch` tự lập kế hoạch, phân việc, chạy nhiều agent song song, dừng đúng ở mọi human gate.
 
+> **Trạng thái:** cơ chế Phase 3 đã implement — `hatch run/plan/watch` + adapter headless (claude/codex/gemini/kiro) + worktree + TUI `hatch board`. Việc còn lại: chạy song song thực sự nhiều agent (hiện `watch` tuần tự một pass) và kiểm thử với agent CLI cài đặt thật.
+
 ## Phụ thuộc giữa phase
 
 ```

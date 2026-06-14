@@ -96,11 +96,16 @@ bin/hatch status                     # board + cảnh báo WIP
 bin/hatch standup --days 1           # digest ledger
 bin/hatch kb add --type decision --title "CSV streaming" --tags export
 bin/hatch kb query export
+# Phase 3 — orchestrator (spawn agent headless theo docs/10)
+bin/hatch run T-001 --claim --dry-run   # build invocation; bỏ --dry-run để chạy thật
+bin/hatch plan --dry-run                 # spawn Conductor bẻ việc
+bin/hatch watch --dry-run --max 3        # gán + chạy backlog (tôn trọng WIP)
+bin/hatch board                          # TUI dashboard
 ```
 
 ## Trạng thái implement
 
-- **Phase 1+2 — xong:** model + filesystem store, `init` (scaffold + 4 workflow template), compiler đa surface (Claude/Codex/Gemini/Kiro) + manifest stale-detection, workflow engine (transition + gate + no-self-review + dependency), ledger append-only, Knowledge Base, các lệnh `status/standup/validate/gate/ticket/kb`. Có unit + integration test, CI, Makefile.
-- **Phase 3 — đang tới:** orchestrator spawn agent headless (`hatch run`/`plan`/`watch`) theo [adapters](docs/10-agent-adapters.md), worktree isolation, TUI dashboard.
+- **Phase 1+2 — xong:** model + filesystem store, `init` (scaffold + 4 workflow template), compiler đa surface (Claude/Codex/Gemini/Kiro) + manifest stale-detection, workflow engine (transition + gate + no-self-review + dependency), ledger append-only, Knowledge Base, các lệnh `status/standup/validate/gate/ticket/kb`.
+- **Phase 3 — xong (cơ chế):** orchestrator + adapter cho từng agent (`hatch run`/`plan`/`watch`) dựng invocation headless đúng theo [adapters](docs/10-agent-adapters.md), worktree isolation, TUI dashboard (`hatch board`). Adapter `kiro`/`antigravity`/`manual` rơi về handoff khi không có headless. `--dry-run` cho phép kiểm tra invocation mà không cần cài agent.
 
-Mã nguồn: `cmd/hatch` + `internal/`. Thiết kế gốc trong `docs/`.
+Có unit + integration test, CI, Makefile. Mã nguồn: `cmd/hatch` + `internal/`. Thiết kế gốc trong `docs/`.

@@ -32,6 +32,10 @@ func NewRoot() *cobra.Command {
 		newTicketCmd(),
 		newKBCmd(),
 		newGateCmd(),
+		newRunCmd(),
+		newPlanCmd(),
+		newWatchCmd(),
+		newBoardCmd(),
 	)
 	return root
 }
