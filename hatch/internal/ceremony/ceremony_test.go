@@ -57,3 +57,26 @@ func TestRetroCounts(t *testing.T) {
 		t.Fatalf("retro counts wrong: %+v", r)
 	}
 }
+
+func TestDemoAndGrooming(t *testing.T) {
+	w := ws(t)
+	// grooming: a fresh backlog ticket from `ticket new` has TODO body + no priority.
+	b := store.NewBoard(w.Layout)
+	b.Write(model.Ticket{ID: "T-001", Lane: "backlog", Status: "backlog", Title: "vague", Body: "## Acceptance\nTODO\n"})
+	_, items, err := Grooming(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 groom item, got %d", len(items))
+	}
+	// demo: a ticket in the terminal lane shows up.
+	b.Write(model.Ticket{ID: "T-002", Lane: "done", Status: "done", Title: "shipped", Assignee: "codex"})
+	_, shown, err := Demo(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(shown) != 1 || shown[0].ID != "T-002" {
+		t.Fatalf("demo should show T-002, got %+v", shown)
+	}
+}

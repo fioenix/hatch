@@ -20,7 +20,60 @@ func newCeremonyCmd() *cobra.Command {
 		Aliases: []string{"cer"},
 		Short:   "Run squad rituals: standup, retro, planning",
 	}
-	cmd.AddCommand(newStandupCeremonyCmd(), newRetroCmd(), newPlanningCmd())
+	cmd.AddCommand(newStandupCeremonyCmd(), newRetroCmd(), newPlanningCmd(), newDemoCmd(), newGroomingCmd())
+	return cmd
+}
+
+func newDemoCmd() *cobra.Command {
+	var post bool
+	cmd := &cobra.Command{
+		Use:   "demo",
+		Short: "Showcase completed work (sprint review); posts to #demo",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			report, _, err := ceremony.Demo(ws)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(cmd.OutOrStdout(), report)
+			if post {
+				if _, err := bus.New(ws.Layout).Post(bus.Message{
+					Channel: "#demo", From: ceremonyChair(ws, "demo"), To: []string{"*"}, Body: report,
+				}); err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), "\n(posted to #demo)")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&post, "post", true, "post the showcase to #demo")
+	return cmd
+}
+
+func newGroomingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "grooming",
+		Short: "Flag under-specified backlog tickets (missing role/priority/acceptance)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			report, items, err := ceremony.Grooming(ws)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(cmd.OutOrStdout(), report)
+			if len(items) > 0 {
+				return fmt.Errorf("%d backlog ticket(s) need refinement", len(items))
+			}
+			return nil
+		},
+	}
 	return cmd
 }
 

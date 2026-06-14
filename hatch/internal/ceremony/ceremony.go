@@ -127,6 +127,107 @@ func Retro(ws *config.Workspace) (*RetroReport, error) {
 	return r, nil
 }
 
+// Demo lists work in terminal (done-like) lanes — the showcase for a sprint
+// review / demo. Returns a report and the tickets shown.
+func Demo(ws *config.Workspace) (string, []model.Ticket, error) {
+	board := store.NewBoard(ws.Layout)
+	var done []model.Ticket
+	for _, id := range terminalLaneIDs(ws) {
+		ts, err := board.ListLane(id)
+		if err != nil {
+			return "", nil, err
+		}
+		done = append(done, ts...)
+	}
+	var b strings.Builder
+	b.WriteString("# Demo / Sprint review\n\n")
+	if len(done) == 0 {
+		b.WriteString("_Chưa có việc hoàn thành để trình diễn._\n")
+	}
+	for _, t := range done {
+		who := t.Assignee
+		if who == "" {
+			who = "-"
+		}
+		fmt.Fprintf(&b, "- **%s** %s — done by %s", t.ID, t.Title, who)
+		if t.Epic != "" {
+			fmt.Fprintf(&b, " (epic %s)", t.Epic)
+		}
+		b.WriteString("\n")
+	}
+	return b.String(), done, nil
+}
+
+// GroomItem is a backlog ticket needing refinement plus the reasons.
+type GroomItem struct {
+	Ticket  model.Ticket
+	Reasons []string
+}
+
+// Grooming scans the entry (backlog) lane for under-specified tickets — the
+// backlog refinement ritual: flag missing role/priority/acceptance.
+func Grooming(ws *config.Workspace) (string, []GroomItem, error) {
+	board := store.NewBoard(ws.Layout)
+	lane := entryLane(ws)
+	tickets, err := board.ListLane(lane)
+	if err != nil {
+		return "", nil, err
+	}
+	var items []GroomItem
+	for _, t := range tickets {
+		var reasons []string
+		if t.Role == "" {
+			reasons = append(reasons, "thiếu role")
+		}
+		if t.Priority == "" {
+			reasons = append(reasons, "thiếu priority")
+		}
+		if !strings.Contains(t.Body, "- [ ]") {
+			reasons = append(reasons, "thiếu acceptance criteria")
+		}
+		if strings.Contains(t.Body, "TODO") {
+			reasons = append(reasons, "còn TODO trong mô tả")
+		}
+		if len(reasons) > 0 {
+			items = append(items, GroomItem{Ticket: t, Reasons: reasons})
+		}
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Backlog grooming (%s)\n\n", lane)
+	if len(items) == 0 {
+		b.WriteString("_Backlog đã đủ rõ — không có ticket cần chuốt._\n")
+	}
+	for _, it := range items {
+		fmt.Fprintf(&b, "- **%s** %s — %s\n", it.Ticket.ID, it.Ticket.Title, strings.Join(it.Reasons, ", "))
+	}
+	return b.String(), items, nil
+}
+
+func entryLane(ws *config.Workspace) string {
+	for _, l := range ws.Workflow.Lanes {
+		if !l.Side {
+			return l.ID
+		}
+	}
+	return ws.Workflow.Lanes[0].ID
+}
+
+func terminalLaneIDs(ws *config.Workspace) []string {
+	outgoing := map[string]bool{}
+	for _, tr := range ws.Workflow.Transitions {
+		if tr.From != "*" {
+			outgoing[tr.From] = true
+		}
+	}
+	var out []string
+	for _, l := range ws.Workflow.Lanes {
+		if !l.Side && !outgoing[l.ID] {
+			out = append(out, l.ID)
+		}
+	}
+	return out
+}
+
 func blockedTickets(ws *config.Workspace) ([]model.Ticket, error) {
 	board := store.NewBoard(ws.Layout)
 	var out []model.Ticket
