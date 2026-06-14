@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -181,59 +183,115 @@ func newPlanCmd() *cobra.Command {
 
 func newWatchCmd() *cobra.Command {
 	var dryRun bool
-	var max int
+	var max, parallel int
 	cmd := &cobra.Command{
 		Use:   "watch",
-		Short: "Assign and run claimable backlog tickets (one pass, respects WIP)",
+		Short: "Assign and run claimable backlog tickets (one pass, respects WIP/presence)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
 			if err != nil {
 				return err
 			}
-			b := store.NewBoard(ws.Layout)
-			lane := firstLane(ws)
-			tickets, err := b.ListLane(lane)
+			n, err := dispatchBacklog(ws, cmd.OutOrStdout(), dispatchOpts{DryRun: dryRun, Max: max, Parallel: parallel})
 			if err != nil {
 				return err
 			}
-			out := cmd.OutOrStdout()
-			ran := 0
-			for _, t := range tickets {
-				if max > 0 && ran >= max {
-					break
-				}
-				if t.Role == "" {
-					fmt.Fprintf(out, "skip %s: no role\n", t.ID)
-					continue
-				}
-				agent, err := pickAgent(ws, "", t.Role)
-				if err != nil {
-					fmt.Fprintf(out, "skip %s: %v\n", t.ID, err)
-					continue
-				}
-				fmt.Fprintf(out, "→ %s → %s (%s)\n", t.ID, agent.ID, agent.Kind)
-				if dryRun {
-					ran++
-					continue
-				}
-				to := claimTarget(ws, t.Lane)
-				if _, err := wf.Move(ws, b, store.NewLedger(ws.Layout), t.ID, wf.MoveOptions{
-					To: to, ByRole: t.Role, Agent: agent.ID, Why: "watch claim",
-				}); err != nil {
-					fmt.Fprintf(out, "  claim failed: %v\n", err)
-					continue
-				}
-				t2, _, _ := b.Find(t.ID, ws.Workflow.LaneIDs())
-				if _, err := orchestrator.Run(ws, agent, t2, t2.Role, orchestrator.RunOptions{Stdout: out}); err != nil {
-					fmt.Fprintf(out, "  run failed: %v\n", err)
-				}
-				ran++
-			}
-			fmt.Fprintf(out, "watch: %d ticket(s) dispatched\n", ran)
+			fmt.Fprintf(cmd.OutOrStdout(), "watch: %d ticket(s) dispatched\n", n)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show assignments without claiming/running")
 	cmd.Flags().IntVar(&max, "max", 0, "max tickets to dispatch this pass (0 = all)")
+	cmd.Flags().IntVar(&parallel, "parallel", 1, "run claimed tickets concurrently with this many workers")
 	return cmd
+}
+
+type dispatchOpts struct {
+	DryRun   bool
+	Max      int
+	Parallel int
+}
+
+type job struct {
+	agent  model.Agent
+	ticket model.Ticket
+}
+
+// dispatchBacklog claims eligible entry-lane tickets (serial — claims must be
+// ordered) then runs them (serial, or concurrently when Parallel > 1). Shared
+// by `watch` and `tick`.
+func dispatchBacklog(ws *config.Workspace, out io.Writer, opt dispatchOpts) (int, error) {
+	b := store.NewBoard(ws.Layout)
+	tickets, err := b.ListLane(firstLane(ws))
+	if err != nil {
+		return 0, err
+	}
+	var jobs []job
+	for _, t := range tickets {
+		if opt.Max > 0 && len(jobs) >= opt.Max {
+			break
+		}
+		if t.Role == "" {
+			fmt.Fprintf(out, "skip %s: no role\n", t.ID)
+			continue
+		}
+		agent, err := pickAgent(ws, "", t.Role)
+		if err != nil {
+			fmt.Fprintf(out, "skip %s: %v\n", t.ID, err)
+			continue
+		}
+		fmt.Fprintf(out, "→ %s → %s (%s)\n", t.ID, agent.ID, agent.Kind)
+		if opt.DryRun {
+			jobs = append(jobs, job{agent, t})
+			continue
+		}
+		to := claimTarget(ws, t.Lane)
+		if _, err := wf.Move(ws, b, store.NewLedger(ws.Layout), t.ID, wf.MoveOptions{
+			To: to, ByRole: t.Role, Agent: agent.ID, Why: "watch claim",
+		}); err != nil {
+			fmt.Fprintf(out, "  claim failed: %v\n", err)
+			continue
+		}
+		claimed, _, _ := b.Find(t.ID, ws.Workflow.LaneIDs())
+		jobs = append(jobs, job{agent, claimed})
+	}
+	if opt.DryRun {
+		return len(jobs), nil
+	}
+	runJobs(ws, out, jobs, opt.Parallel)
+	return len(jobs), nil
+}
+
+// runJobs executes claimed jobs, serially or with a bounded worker pool.
+func runJobs(ws *config.Workspace, out io.Writer, jobs []job, parallel int) {
+	if parallel <= 1 {
+		for _, j := range jobs {
+			if _, err := orchestrator.Run(ws, j.agent, j.ticket, j.ticket.Role, orchestrator.RunOptions{Stdout: out}); err != nil {
+				fmt.Fprintf(out, "  %s run failed: %v\n", j.ticket.ID, err)
+			}
+		}
+		return
+	}
+	// Parallel: output goes to per-run transcripts (hatch logs / TUI) to avoid
+	// garbled terminal; we just print start/done lines here.
+	sem := make(chan struct{}, parallel)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for _, j := range jobs {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(j job) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			_, err := orchestrator.Run(ws, j.agent, j.ticket, j.ticket.Role, orchestrator.RunOptions{Stdout: io.Discard})
+			mu.Lock()
+			if err != nil {
+				fmt.Fprintf(out, "  %s run failed: %v\n", j.ticket.ID, err)
+			} else {
+				fmt.Fprintf(out, "  %s done (see `hatch logs %s`)\n", j.ticket.ID, j.ticket.ID)
+			}
+			mu.Unlock()
+		}(j)
+	}
+	wg.Wait()
 }

@@ -58,6 +58,8 @@ func NewRoot() *cobra.Command {
 		newDocCmd(),
 		newLogsCmd(),
 		newOrgCmd(),
+		newReportCmd(),
+		newTickCmd(),
 	)
 	return root
 }
