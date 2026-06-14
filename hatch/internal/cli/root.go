@@ -44,6 +44,7 @@ func NewRoot() *cobra.Command {
 		newThreadCmd(),
 		newAskCmd(),
 		newConveneCmd(),
+		newSearchCmd(),
 	)
 	return root
 }

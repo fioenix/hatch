@@ -120,7 +120,117 @@ func newChannelCmd() *cobra.Command {
 	}
 	show.Flags().StringVar(&in, "in", "", "show only the thread rooted at this message id")
 
-	cmd.AddCommand(ls, show)
+	var joinAgent string
+	join := &cobra.Command{
+		Use:   "join <channel>",
+		Short: "Subscribe an agent to a channel",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			if joinAgent == "" {
+				return fmt.Errorf("--agent is required")
+			}
+			if err := bus.New(ws.Layout).Subscribe(args[0], joinAgent); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s subscribed to %s\n", joinAgent, args[0])
+			return nil
+		},
+	}
+	join.Flags().StringVar(&joinAgent, "agent", "", "agent id to subscribe (required)")
+
+	var leaveAgent string
+	leave := &cobra.Command{
+		Use:   "leave <channel>",
+		Short: "Unsubscribe an agent from a channel",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			if leaveAgent == "" {
+				return fmt.Errorf("--agent is required")
+			}
+			if err := bus.New(ws.Layout).Unsubscribe(args[0], leaveAgent); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s left %s\n", leaveAgent, args[0])
+			return nil
+		},
+	}
+	leave.Flags().StringVar(&leaveAgent, "agent", "", "agent id to unsubscribe (required)")
+
+	members := &cobra.Command{
+		Use:   "members <channel>",
+		Short: "List a channel's subscribers",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			ms := bus.New(ws.Layout).Members(args[0])
+			if len(ms) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "no subscribers")
+			}
+			for _, a := range ms {
+				fmt.Fprintln(cmd.OutOrStdout(), a)
+			}
+			return nil
+		},
+	}
+
+	cmd.AddCommand(ls, show, join, leave, members)
+	return cmd
+}
+
+func newSearchCmd() *cobra.Command {
+	var channel, from, typ, agent string
+	var limit int
+	var all bool
+	cmd := &cobra.Command{
+		Use:   "search [query]",
+		Short: "Recall relevant messages into context (not a firehose; newest-first, capped)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			bs := bus.New(ws.Layout)
+			opts := bus.SearchOpts{
+				Query: strings.Join(args, " "), Channel: channel, From: from, Type: typ, Limit: limit,
+			}
+			// Default scope: the agent's subscribed channels (unless --all / --channel).
+			if agent != "" && channel == "" && !all {
+				subs := bs.Subscriptions(agent)
+				if len(subs) > 0 {
+					opts.Channels = subs
+				}
+			}
+			hits, err := bs.Search(opts)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(hits) == 0 {
+				fmt.Fprintln(out, "no matching messages")
+			}
+			for _, m := range hits {
+				fmt.Fprintf(out, "%s · %s · %s → %s · %s\n  %s\n", m.TS, m.Channel, m.From, strings.Join(m.To, ","), m.Type, oneLine(m.Body))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&channel, "channel", "c", "", "restrict to one channel")
+	cmd.Flags().StringVar(&from, "from", "", "restrict to a sender")
+	cmd.Flags().StringVar(&typ, "type", "", "restrict to a message type")
+	cmd.Flags().StringVar(&agent, "agent", "", "scope to this agent's subscriptions by default")
+	cmd.Flags().IntVar(&limit, "limit", 20, "max results (newest first)")
+	cmd.Flags().BoolVar(&all, "all", false, "search all channels, ignoring subscriptions")
 	return cmd
 }
 

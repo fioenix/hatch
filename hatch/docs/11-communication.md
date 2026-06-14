@@ -40,6 +40,24 @@ Mỗi message là một block append-only; reply tạo **thread** trong channel:
 `type`: `msg` · `ask` (chờ trả lời) · `reply` · `decision` (chốt/đồng thuận).
 `to`: id agent · id vai · `#channel` · `*`/`all`. **@mention trong body** tự được gộp vào `to` → người/vai được tag thấy trong `hatch inbox`.
 
+## Cách agent "đọc": inbox vs subscribe vs search
+
+Agent **không** đọc/xử lý mọi message trong mọi channel — đó là phản token. Ba mức tách bạch:
+
+| Mức | Là gì | Lệnh | Token |
+|---|---|---|---|
+| **Inbox** | Việc *phải xử lý*: DM + @mention + broadcast `*` | `hatch inbox <agent>` | nhỏ, chỉ phần cần hành động |
+| **Subscribe** | *Phạm vi* channel agent quan tâm (membership) | `hatch channel join/leave <#ch> --agent X` | không nạp gì — chỉ định ranh giới |
+| **Search/recall** | *Nạp đúng phần liên quan* vào context theo truy vấn | `hatch search <query> --agent X` | có giới hạn (newest-first, `--limit`) |
+
+Mặc định `hatch search --agent X` chỉ tìm trong **channel X đã subscribe** (dùng `--all` để bỏ giới hạn). Đây chính là L2 on-demand cho hội thoại: agent **recall như search** thay vì đọc cả bus → giữ context gọn. Subscribe định nghĩa "tôi quan tâm channel nào"; search quyết định "lúc này nạp gì vào đầu".
+
+```bash
+hatch channel join '#design' --agent codex     # codex quan tâm #design
+hatch search "encoding csv" --agent codex       # recall liên quan trong scope của codex
+hatch search "human-merge" --all --limit 10     # tra toàn bộ khi cần
+```
+
 ## Ba kiểu giao tiếp
 
 ### 1. Channel · DM · @mention · thread (async)
