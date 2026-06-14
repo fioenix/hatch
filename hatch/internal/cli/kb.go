@@ -45,7 +45,7 @@ func newKBAddCmd() *cobra.Command {
 				}
 			}
 			kb := store.NewKB(ws.Layout)
-			id := nextKBID(kb, typ)
+			id := kb.NextID(typ)
 			entry := model.KBEntry{
 				ID:      id,
 				Type:    typ,
@@ -130,23 +130,6 @@ func newKBIndexCmd() *cobra.Command {
 		},
 	}
 	return cmd
-}
-
-// nextKBID generates a per-type id: ADR-NNN for decisions, KB-NNN otherwise.
-func nextKBID(kb *store.KB, typ string) string {
-	prefix := "KB"
-	if typ == model.KBDecision {
-		prefix = "ADR"
-	}
-	entries, _ := kb.List()
-	max := 0
-	for _, e := range entries {
-		var n int
-		if _, err := fmt.Sscanf(e.ID, prefix+"-%d", &n); err == nil && n > max {
-			max = n
-		}
-	}
-	return fmt.Sprintf("%s-%03d", prefix, max+1)
 }
 
 func splitCSV(s string) []string {

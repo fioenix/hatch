@@ -45,6 +45,8 @@ func NewRoot() *cobra.Command {
 		newAskCmd(),
 		newConveneCmd(),
 		newSearchCmd(),
+		newCeremonyCmd(),
+		newEscalateCmd(),
 	)
 	return root
 }

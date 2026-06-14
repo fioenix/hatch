@@ -27,7 +27,8 @@ type Role struct {
 type Policy struct {
 	NoSelfReview bool     `yaml:"no_self_review"`
 	HumanMerge   bool     `yaml:"human_merge"`
-	ProtectGlobs []string `yaml:"protect,omitempty"` // paths agents may not touch
+	ProtectGlobs []string `yaml:"protect,omitempty"`     // paths agents may not touch
+	EscalateTo   string   `yaml:"escalate_to,omitempty"` // role/agent to escalate to (default conductor)
 }
 
 // WorkflowRef points the registry at the per-project workflow definition.

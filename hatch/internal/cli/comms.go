@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
+	"github.com/fioenix/overclaud/hatch/internal/decide"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/orchestrator"
 )
@@ -448,8 +449,16 @@ func newConveneCmd() *cobra.Command {
 					if turn == "" {
 						continue
 					}
-					if _, err := bs.Post(bus.Message{Channel: thread, From: a.ID, To: []string{"*"}, Type: turnType(turn), Body: turn}); err != nil {
+					tt := turnType(turn)
+					if _, err := bs.Post(bus.Message{Channel: thread, From: a.ID, To: []string{"*"}, Type: tt, Body: turn}); err != nil {
 						return err
+					}
+					// A meeting decision becomes a durable ADR in the KB.
+					if tt == bus.TypeDecision {
+						body := strings.TrimSpace(strings.TrimPrefix(turn, "DECISION:"))
+						if e, err := decide.Record(ws, thread, topic, a.ID, body); err == nil {
+							fmt.Fprintf(out, "  ↳ recorded %s in kb/decisions/\n", e.ID)
+						}
 					}
 				}
 			}

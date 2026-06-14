@@ -86,6 +86,7 @@ func Move(ws *config.Workspace, b *store.Board, lg *store.Ledger, ticketID strin
 			}
 			if !o.Human && !o.Passed {
 				_ = lg.Append(gateEntry(opt, t, from, "failed", "gate "+o.Name+" failed: "+o.Detail))
+				maybeEscalate(ws, lg, t.ID)
 				return nil, fmt.Errorf("gate %q failed: %s", o.Name, o.Detail)
 			}
 		}

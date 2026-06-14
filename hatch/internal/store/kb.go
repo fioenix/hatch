@@ -79,6 +79,24 @@ func (k *KB) Query(tags []string) ([]model.KBEntry, error) {
 	return out, nil
 }
 
+// NextID returns the next sequential id for a KB type: ADR-NNN for decisions,
+// KB-NNN otherwise.
+func (k *KB) NextID(typ string) string {
+	prefix := "KB"
+	if typ == model.KBDecision {
+		prefix = "ADR"
+	}
+	entries, _ := k.List()
+	max := 0
+	for _, e := range entries {
+		var n int
+		if _, err := fmt.Sscanf(e.ID, prefix+"-%d", &n); err == nil && n > max {
+			max = n
+		}
+	}
+	return fmt.Sprintf("%s-%03d", prefix, max+1)
+}
+
 // Add writes a new KB entry to its type subdirectory and returns the path.
 func (k *KB) Add(e model.KBEntry) (string, error) {
 	sub := model.KBSubdir(e.Type)
