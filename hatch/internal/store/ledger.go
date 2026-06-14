@@ -5,11 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/paths"
 )
+
+// ledgerMu serializes ledger appends within a process so concurrent runs
+// (parallel watch/tick) don't interleave entry blocks.
+var ledgerMu sync.Mutex
 
 // Ledger appends audit entries to per-day Markdown files.
 type Ledger struct{ L paths.Layout }
@@ -74,6 +79,8 @@ func (lg *Ledger) Append(e model.Entry) error {
 	if e.Action == model.ActHandoff && e.Handoff == "" {
 		return fmt.Errorf("handoff entry requires a `handoff` note")
 	}
+	ledgerMu.Lock()
+	defer ledgerMu.Unlock()
 	if err := os.MkdirAll(lg.L.Ledger(), 0o755); err != nil {
 		return err
 	}

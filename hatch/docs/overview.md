@@ -32,10 +32,13 @@ Legend: **✓** đã implement (code + test) · **◇** mới thiết kế (docs
 │  COLLAB        ✓  pairing(driver/navigator) · mob(driver xoay vòng)                │
 │  ỨNG CỨU       ✓  escalation · on-call rotation · incident workflow               │
 │  CAPACITY      ✓  presence(available/busy/paused/offline) → phân việc theo tải     │
-│  TUI           ✓  hatch board                                                      │
+│  OBSERVE       ✓  transcript mỗi run + hatch logs -f · TUI board (board+live+feed) │
+│                ✓  --mux=tmux|zellij (mỗi run một pane thật)                         │
+│  DOCS/KB       ✓  doc templates (new/lint) · Obsidian KB (link/backlinks/graph)    │
 │  ── lớp QUẢN TRỊ (Founder/CEO/CTO) ──────────────────────────────────────────────  │
-│  ◇ workload · ◇ performance · ◇ budget/lương(+auto-pause) · ◇ org-chart/DoA        │
-│  ◇ external deps · ◇ heartbeat(tick) · ◇ stakeholder report                        │
+│  ✓ workload · ✓ performance · ✓ budget/lương(track) · ✓ org-chart/DoA              │
+│  ✓ external deps · ✓ heartbeat(hatch tick) · ✓ stakeholder report(hatch report)    │
+│  ◇ còn lại: auto-pause khi vượt budget (đã chốt track-only), parallel-watch worktree│
 └────────────────────────────────────────────────────────────────────────────────┘
 
 3 kho tri thức:  SSOT = config VÀO  ·  KB = tri thức VÀO+RA  ·  ledger = sự kiện RA
@@ -46,16 +49,17 @@ Legend: **✓** đã implement (code + test) · **◇** mới thiết kế (docs
 
 ```
 SETUP/SSOT     init · compile [--check] · validate · sync · hook install
-BOARD/WORK     ticket new|claim|move|show · status · standup · gate
-ORCHESTRATOR   run [--claim --worktree --no-catch-up] · plan · watch
-KNOWLEDGE      kb add|query|index
+BOARD/WORK     ticket new|claim|move|show|extdep · status · standup · gate
+ORCH/OBSERVE   run [--claim --worktree --mux=tmux|zellij] · plan · watch [--parallel N]
+               tick · logs [-f] · board (TUI)
+KNOWLEDGE      kb add|query|index|link|backlinks|graph|open · doc types|new|lint
 COMMUNICATION  msg · inbox · thread · channel ls|show|join|leave|members · search
 DIALOGUE       ask · convene [--decider] · escalate
 COLLAB         pair · mob
 CEREMONY       ceremony standup|retro|planning|demo|grooming
 CAPACITY/OPS   presence [set] · oncall [set|rotate]
-VIEW           board (TUI)
-◇ THIẾT KẾ     workload · perf · budget · cost · report · org · tick · daemon
+MANAGE         workload · perf · cost · budget · report · org
+◇ còn lại      auto-pause budget (chốt track-only) · parallel-watch worktree · daemon
 ```
 
 ## 3. "Một ngày của squad" (luồng dệt mọi mảnh)

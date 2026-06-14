@@ -1,6 +1,6 @@
 # 18 — Quan sát agents đang làm việc (observability)
 
-> **Trạng thái: THIẾT KẾ (chưa implement).** Làm sao "nhìn" được các agent CLI mà Hatch điều khiển?
+> **Trạng thái: ĐÃ IMPLEMENT** — transcript mỗi run + `hatch logs -f`, TUI tầng A (`hatch board`: board+live+activity), và mux tầng B (`hatch run --mux=tmux|zellij`) đều chạy. Doc này là thiết kế gốc.
 
 ## Hai thứ KHÁC NHAU cần quan sát
 

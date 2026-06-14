@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
+	"github.com/fioenix/overclaud/hatch/internal/mux"
 	"github.com/fioenix/overclaud/hatch/internal/orchestrator"
 	"github.com/fioenix/overclaud/hatch/internal/presence"
 	"github.com/fioenix/overclaud/hatch/internal/store"
@@ -87,7 +89,7 @@ func overWIP(a model.Agent, load map[string]int) bool {
 }
 
 func newRunCmd() *cobra.Command {
-	var agentID string
+	var agentID, muxKind string
 	var dryRun, claim, worktree, noCatchUp bool
 	var timeout time.Duration
 	cmd := &cobra.Command{
@@ -130,6 +132,19 @@ func newRunCmd() *cobra.Command {
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "worktree: %s\n", path)
 			}
+			// Open in a multiplexer pane: re-invoke this run (minus --mux) there.
+			if muxKind != "" && !dryRun {
+				exe, err := os.Executable()
+				if err != nil {
+					return err
+				}
+				inner := []string{exe, "run", t.ID, "--agent", agent.ID}
+				if err := mux.Launch(muxKind, t.ID, inner); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "→ %s launched in %s pane (watch there); tail: hatch logs %s -f\n", t.ID, muxKind, t.ID)
+				return nil
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "→ %s (%s) on %s as %s\n", agent.ID, agent.Kind, t.ID, t.Role)
 			out, err := orchestrator.Run(ws, agent, t, t.Role, orchestrator.RunOptions{
 				DryRun: dryRun, Timeout: timeout, Stdout: cmd.OutOrStdout(), SkipComms: noCatchUp,
@@ -144,6 +159,7 @@ func newRunCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&agentID, "agent", "", "agent id (default: first eligible for the ticket's role)")
+	cmd.Flags().StringVar(&muxKind, "mux", "", "open the run in a tmux|zellij pane to watch live")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the invocation without executing")
 	cmd.Flags().BoolVar(&claim, "claim", false, "claim the ticket before running")
 	cmd.Flags().BoolVar(&worktree, "worktree", false, "run in an isolated git worktree")

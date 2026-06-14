@@ -1,6 +1,6 @@
 # 14 — Org chart, delegation & cadence
 
-> **Trạng thái: THIẾT KẾ (chưa implement).** Brainstorm cho ba mảnh vận hành còn thiếu: **org-chart + uỷ quyền**, **phụ thuộc liên đội/bên ngoài**, và **nhịp/heartbeat**. Nối tiếp [13-management](13-management.md).
+> **Trạng thái: ĐÃ IMPLEMENT** — `hatch org` (org-chart + DoA, escalation leo cây), `hatch ticket extdep` (external deps, chặn claim), `hatch tick` (heartbeat cho cron/CI) đều chạy. Doc này là thiết kế gốc. Còn lại: `daemon`, multi-repo deps.
 
 ## 1. Org chart & Delegation of Authority (DoA)
 

@@ -1,6 +1,6 @@
 # 13 — Management plane (Founder/CEO/CTO view)
 
-> **Trạng thái: THIẾT KẾ (chưa implement).** Brainstorm cho lớp quản lý vận hành. Mọi số liệu **derive từ artifact đã có** (ledger + board + bus) — không thêm hệ thống tracking song song. Một người ở vai Founder/CEO/CTO cần ba thứ: **workload** (đội đang tải bao nhiêu), **performance** (làm tốt không), **budget/lương** (tốn bao nhiêu, có vượt không).
+> **Trạng thái: PHẦN LỚN ĐÃ IMPLEMENT** — `hatch workload · perf · cost · budget · report` chạy được; cost track-only (không auto-pause, theo quyết định ở [17](17-pre-implementation.md)). Doc này là thiết kế gốc của lớp quản lý vận hành. Mọi số liệu **derive từ artifact đã có** (ledger + board + bus) — không thêm hệ thống tracking song song. Một người ở vai Founder/CEO/CTO cần ba thứ: **workload** (đội đang tải bao nhiêu), **performance** (làm tốt không), **budget/lương** (tốn bao nhiêu, có vượt không).
 
 ## 0. Nền dữ liệu: mọi metric đến từ ledger
 
