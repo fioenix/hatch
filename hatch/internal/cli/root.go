@@ -36,6 +36,8 @@ func NewRoot() *cobra.Command {
 		newPlanCmd(),
 		newWatchCmd(),
 		newBoardCmd(),
+		newSyncCmd(),
+		newHookCmd(),
 	)
 	return root
 }
