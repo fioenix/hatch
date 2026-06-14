@@ -2,9 +2,22 @@
 
 Hai mục tiêu overclaud nâng lên multi-agent: **hết drift** (1 nguồn → N output) và **tiết kiệm token** (mỗi agent nạp tối thiểu).
 
+## SSOT vs Knowledge Base — hai loại tri thức
+
+Hatch tách hai loại tri thức vì chúng có vòng đời và quyền ghi khác nhau:
+
+| | **SSOT** (`context/`, `charter.md`, `roles/`) | **Knowledge Base** (`kb/`) |
+|---|---|---|
+| Là gì | *Config/chuẩn* để định hình agent | *Tri thức tích lũy* khi làm việc |
+| Hướng | Đầu vào → **compile** vào prompt | Vào **và** ra; tra cứu on-demand |
+| Ai ghi | Human / Architect (cẩn trọng, ít đổi) | Mọi agent (ghi liên tục khi học được) |
+| Bị compile? | **Có** → `CLAUDE.md`/`AGENTS.md`… | **Không** — đọc động qua index/truy vấn |
+
+Doc này nói về SSOT + compile. Chi tiết KB ở [09-knowledge-base](09-knowledge-base.md).
+
 ## Single Source of Truth (SSOT)
 
-Tất cả tri thức canonical sống một nơi: `.hatch/context/` + `.hatch/charter.md` + `.hatch/roles/`. **Không bao giờ** viết tay vào `CLAUDE.md`/`AGENTS.md`/`.kiro/steering/` — chúng là output sinh ra.
+Tất cả tri thức canonical (config) sống một nơi: `.hatch/context/` + `.hatch/charter.md` + `.hatch/roles/`. **Không bao giờ** viết tay vào `CLAUDE.md`/`AGENTS.md`/`.kiro/steering/` — chúng là output sinh ra.
 
 ```
 .hatch/charter.md          → mission, value, ràng buộc tối cao   (L0)
@@ -23,9 +36,9 @@ Mô phỏng cách một nhân viên thật mang theo thông tin: ai cũng thuộ
 |---|---|---|---|
 | **L0** Mission | charter — rất ngắn | Mọi agent, mọi message | Luôn (nằm trong file compiled) |
 | **L1** Role | role file của (các) vai agent giữ | Agent theo vai | Luôn (trong file compiled) |
-| **L2** Task | ticket active + `context_refs` của nó | Agent đang làm ticket | On-demand, chỉ khi claim |
+| **L2** Task | ticket active + `context_refs` + **mục KB liên quan** | Agent đang làm ticket | On-demand, chỉ khi claim |
 
-**Nguyên tắc vàng:** file compiled (luôn nạp mỗi message) chỉ chứa L0 + L1 + **con trỏ** tới L2. L2 được agent đọc *khi* nhận ticket, không nhồi sẵn. Đây là khác biệt token lớn nhất so với "một CLAUDE.md chứa tất cả".
+**Nguyên tắc vàng:** file compiled (luôn nạp mỗi message) chỉ chứa L0 + L1 + **con trỏ** tới L2. L2 (gồm cả tra cứu KB) được agent đọc *khi* nhận ticket, không nhồi sẵn. Đây là khác biệt token lớn nhất so với "một CLAUDE.md chứa tất cả". KB cũng giúp tiết kiệm token theo cách khác: agent **tra cứu quyết định/bài học có sẵn** thay vì suy diễn lại từ đầu.
 
 ### Ước lượng tiết kiệm
 

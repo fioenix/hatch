@@ -10,9 +10,11 @@ Nguyên tắc cốt lõi, mượn từ squad người: **vai (role)** là một 
 
 Đổi agent cho một vai = sửa 1 dòng registry + compile lại. Không phải viết lại context.
 
-## Bộ vai chuẩn
+> **Vai là cấu hình per-project, không fix cứng.** `registry.yaml` sống trong `.hatch/` của *từng project*. Cùng một agent (vd Codex) có thể là `Implementer` ở project A, `Tester` ở project B, hoặc kiêm cả hai ở project C — do **người dùng quyết định ở từng project**. Bộ vai chuẩn + bảng map dưới đây chỉ là **template khởi đầu** để khỏi bắt đầu từ số 0; user sửa thoải mái.
 
-Lấy theo một squad sản phẩm điển hình:
+## Bộ vai chuẩn (template khởi đầu)
+
+Lấy theo một squad sản phẩm điển hình — copy rồi sửa cho project của bạn:
 
 | Vai | Trách nhiệm | Ranh giới (KHÔNG được) | Context L1 nạp |
 |---|---|---|---|
@@ -23,11 +25,11 @@ Lấy theo một squad sản phẩm điển hình:
 | **Tester** | Viết/chạy test, báo cáo, dựng repro | Sửa code production để test pass | tech/test + ticket |
 | **Tech Writer** | Docs, changelog, runbook | Đổi hành vi code | product/ + ticket |
 
-Đây là mặc định. Người dùng thêm/bớt vai tùy repo (vd: `SecurityReviewer`, `DataEngineer`).
+Người dùng thêm/bớt/đổi tên vai tùy project (vd: `SecurityReviewer`, `DataEngineer`, `PromptEngineer`). Một project nhỏ có thể chỉ cần 2 vai (Implementer + Reviewer); một project lớn có thể có 8 vai.
 
-## Map năng lực → agent (mặc định gợi ý)
+## Map năng lực → agent (template gợi ý, override per-project)
 
-Phân vai theo điểm mạnh quan sát được của từng agent. Người dùng override trong `registry.yaml`.
+Phân vai theo điểm mạnh quan sát được của từng agent. Đây **chỉ là gợi ý xuất phát**; người dùng tự đặt lại trong `registry.yaml` của mỗi project.
 
 | Agent | Vai phù hợp | Lý do |
 |---|---|---|

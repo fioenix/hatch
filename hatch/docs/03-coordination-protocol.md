@@ -75,6 +75,7 @@ Mỗi ticket kế thừa DoD mặc định + DoD riêng. Reviewer gác đúng ch
 - [ ] Lint/format sạch
 - [ ] Diff được review bởi agent ≠ implementer (no-self-review)
 - [ ] Ledger có entry hoàn thành + handoff note
+- [ ] Tri thức đáng giữ (ADR/gotcha/rule) đã ghi vào [KB](09-knowledge-base.md) — nếu ticket có hàm lượng tri thức cao
 - [ ] Branch có PR (human gate cho merge)
 
 Xem thêm [governance](06-governance.md) về gate trước merge.

@@ -31,6 +31,8 @@ Hệ quả thiết kế trực tiếp:
 - Mỗi việc là một **ticket** có vòng đời rõ ràng.
 - Mọi thay đổi trạng thái để lại **dấu vết** (ledger = standup notes + git log).
 - Người mới vào được phát **handbook đúng vai** (compiler = onboarding).
+- Tri thức tích lũy vào **wiki chung** (KB) — không đọc được não nhau, nhưng cùng tra/cập nhật một chỗ.
+- **Vai trò và quy trình do đội tự định ở mỗi project** — không áp một khuôn cứng cho mọi nơi.
 
 ## Mục tiêu đo được
 
@@ -41,6 +43,8 @@ Hệ quả thiết kế trực tiếp:
 | Không giẫm chân | 0 ticket bị 2 agent claim cùng lúc; branch-per-ticket |
 | Audit đầy đủ | Mọi chuyển trạng thái ticket có entry ledger (who/what/when/why) |
 | Onboard agent mới nhanh | Thêm 1 agent = 1 dòng `registry.yaml` + 1 lần compile |
+| Tri thức không bốc hơi | Quyết định/bài học ghi vào KB; agent sau tra cứu thay vì dò lại |
+| Linh hoạt per-project | Vai trò + workflow cấu hình riêng từng project, không sửa code |
 
 ## Ngoài phạm vi (bản đầu)
 

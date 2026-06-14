@@ -1,6 +1,6 @@
 # Spec — `registry.yaml`
 
-Bảng phân công của đội: roster agent, năng lực, binding vai, policy. Nguồn để compiler và orchestrator biết "ai là ai, làm được gì, được gọi thế nào".
+Bảng phân công của đội: roster agent, năng lực, binding vai, policy. Nguồn để compiler và orchestrator biết "ai là ai, làm được gì, được gọi thế nào". **File này sống trong `.hatch/` của từng project** — vai trò là cấu hình per-project, không fix cứng (xem [roles](../docs/02-roles.md)). Quy trình tách riêng ở [`workflow.yaml`](workflow.schema.md).
 
 ## Schema
 
@@ -60,10 +60,9 @@ policy:
     implementer: 2
     reviewer: 3
 
-# Biến thể quy trình (xem workflow.md)
+# Quy trình tách riêng ở workflow.yaml (xem workflow.schema.md)
 workflow:
-  mode: scrum            # scrum | kanban
-  spec-required-for: epic   # epic bắt buộc qua PRD→Design→Tasks
+  ref: workflow.yaml     # trỏ tới file workflow per-project
 ```
 
 ## Quy tắc

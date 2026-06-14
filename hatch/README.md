@@ -21,11 +21,15 @@ Mọi thành phần trong Hatch đều có một đối ứng trong một squad 
 | `charter.md` | Team charter / mục tiêu sản phẩm |
 | `roles/` | Bản mô tả công việc (JD) từng vai |
 | `registry.yaml` | Danh bạ nhân sự + năng lực + ai giữ vai gì |
+| `kb/` | **Wiki / bộ não chung của đội** (Confluence) — đọc *và* ghi |
+| `workflow.yaml` | Quy trình làm việc của đội — template, sửa được |
 | `board/` | Bảng sprint (Jira) |
 | `ledger/` | Sổ standup / nhật ký hoạt động / git log |
 | `protocol/` | Working agreements của đội |
 | `compiler` | Bộ sinh tài liệu onboarding cho từng người mới |
 | `orchestrator` | Engineering Manager / Scrum Master |
+
+> **Bộ nhớ chung.** Agents không chia sẻ RAM (mỗi con một process), nhưng cùng khai thác và đóng góp vào **Knowledge Base** (`kb/`) — y như một đội người không đọc được não nhau nhưng cùng tra cứu và cập nhật một wiki. KB là bộ nhớ chung *bền* của hệ; agent vừa *input* (tra cứu để khỏi suy diễn lại) vừa *ghi lại* (quyết định, bài học, gotcha) khi làm. Xem [09-knowledge-base](docs/09-knowledge-base.md).
 
 ## Bốn agent, bốn vai mặc định
 
@@ -36,16 +40,17 @@ Mọi thành phần trong Hatch đều có một đối ứng trong một squad 
 | **Codex** | Autonomous Implementer | Thực thi nhanh, lặp nhiều |
 | **Antigravity CLI** | Implementer / Utility | Linh hoạt, gánh việc phụ |
 
-Vai là do **người dùng chỉ định** qua `registry.yaml`; bảng trên chỉ là mặc định gợi ý.
+Bảng trên **chỉ là template khởi đầu**. Vai trò là do **người dùng tự cấu hình ở từng project** qua `registry.yaml` của project đó — không fix cứng. Cùng một agent có thể giữ vai khác nhau ở các project khác nhau. Xem [02-roles](docs/02-roles.md).
 
-## Sáu trụ thiết kế
+## Bảy trụ thiết kế
 
 1. **Single Source of Truth → compile xuống từng agent.** Một nguồn canonical (`context/`), một compiler sinh ra `CLAUDE.md` / `AGENTS.md` / `.kiro/steering/` … tự động. Không copy-paste, không drift.
-2. **Token optimization = context phân tầng** (L0 mission → L1 role → L2 task). Mỗi agent chỉ nạp tầng của nó + ticket đang làm.
-3. **Role assignment** — map vai ↔ điểm mạnh từng agent.
-4. **Coordination protocol** — điều phối qua artifact trong repo (board + ledger), async, không agent nào gọi trực tiếp agent khác.
-5. **Workflow** — Agile ghép spec-driven: `Charter → Spec → Backlog → Sprint → In-Progress → Review → Done`.
-6. **Governance & audit** — ledger append-only, gate trước merge, giới hạn thẩm quyền agent.
+2. **Knowledge Base dùng chung** (`kb/`) — bộ nhớ chung bền của hệ; mọi agent đọc *và* ghi. Thay cho "shared memory" mà các process không có.
+3. **Token optimization = context phân tầng** (L0 mission → L1 role → L2 task + KB on-demand). Mỗi agent chỉ nạp tầng của nó + ticket đang làm.
+4. **Role assignment per-project** — map vai ↔ điểm mạnh từng agent; user tự thiết kế ở mỗi project.
+5. **Coordination protocol** — điều phối qua artifact trong repo (board + ledger), async, không agent nào gọi trực tiếp agent khác.
+6. **Workflow = template sửa được** — mặc định Agile ghép spec-driven (`Charter → Spec → Backlog → Sprint → In-Progress → Review → Done`); user có quyền thiết kế lại hoàn toàn ở mỗi project qua `workflow.yaml`.
+7. **Governance & audit** — ledger append-only, gate trước merge, giới hạn thẩm quyền agent.
 
 ## Mô hình điều phối: Hybrid
 
@@ -62,13 +67,14 @@ Vai là do **người dùng chỉ định** qua `registry.yaml`; bảng trên ch
 | 01 | [architecture](docs/01-architecture.md) | 6 trụ, layout `.hatch/`, các thành phần |
 | 02 | [roles](docs/02-roles.md) | Mô hình vai, map năng lực agent |
 | 03 | [coordination-protocol](docs/03-coordination-protocol.md) | Hybrid, board, claim/lock, handoff, DoD |
-| 04 | [context-compiler](docs/04-context-compiler.md) | SSOT → compile per-agent, 3 tầng token |
-| 05 | [workflow](docs/05-workflow.md) | Lifecycle Agile + spec-driven, ceremonies |
+| 04 | [context-compiler](docs/04-context-compiler.md) | SSOT vs KB, compile per-agent, 3 tầng token |
+| 05 | [workflow](docs/05-workflow.md) | Workflow-as-template, lifecycle, ceremonies |
 | 06 | [governance](docs/06-governance.md) | Ledger, gates, giới hạn thẩm quyền |
 | 07 | [orchestrator](docs/07-orchestrator.md) | Phase 3: CLI `hatch` launch & drive agent |
 | 08 | [roadmap](docs/08-roadmap.md) | Lộ trình Phase 1 → 2 → 3 |
+| 09 | [knowledge-base](docs/09-knowledge-base.md) | KB dùng chung: cấu trúc, đọc/ghi, vs SSOT/ledger |
 
-Spec kỹ thuật: [registry](spec/registry.schema.md) · [ticket](spec/ticket.schema.md) · [ledger](spec/ledger.schema.md)
+Spec kỹ thuật: [registry](spec/registry.schema.md) · [ticket](spec/ticket.schema.md) · [ledger](spec/ledger.schema.md) · [workflow](spec/workflow.schema.md)
 
 ## Trạng thái
 

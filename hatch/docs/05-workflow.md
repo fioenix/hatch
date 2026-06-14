@@ -1,8 +1,10 @@
 # 05 — Workflow
 
-Hatch ghép hai chuẩn product development: **Agile** (vòng lặp, ticket, ceremonies) và **spec-driven** (PRD → design → tasks, kiểu Kiro). Cả hai đều ánh xạ về artifact file + chuyển trạng thái board.
+> **Workflow là template, không phải luật cứng.** Mọi thứ trong doc này là **mặc định** mà Hatch ship sẵn. Người dùng có toàn quyền **thiết kế lại workflow ở từng project** — đổi lane, transition, gate, ceremony — qua `.hatch/workflow.yaml` (xem [spec/workflow](../spec/workflow.schema.md)). Board lanes, điều kiện chuyển trạng thái, và gate đều *đọc từ* file này; sửa file = đổi quy trình, không cần sửa code.
 
-## Lifecycle tổng
+Mặc định, Hatch ghép hai chuẩn product development: **Agile** (vòng lặp, ticket, ceremonies) và **spec-driven** (PRD → design → tasks, kiểu Kiro). Cả hai đều ánh xạ về artifact file + chuyển trạng thái board.
+
+## Lifecycle tổng (mặc định)
 
 ```
 CHARTER ─► SPEC ─► BACKLOG ─► SPRINT ─► IN-PROGRESS ─► REVIEW ─► DONE ─► RETRO
@@ -57,12 +59,28 @@ Thay vì mỗi agent đọc lại toàn bộ lịch sử (tốn token), Conducto
 
 Hatch không ép thời lượng. "Sprint" = một tập ticket Conductor cam kết cho một chu kỳ (có thể là một phiên làm việc, một ngày, hay một tuần). Cái cần là **ranh giới rõ** để có điểm review + retro + nén ledger.
 
-## Hỗ trợ nhiều chuẩn product dev
+## Workflow-as-template: thiết kế lại per-project
 
-Lifecycle trên là khung. Người dùng cấu hình biến thể trong `charter.md` / `protocol/`:
-- **Scrum-like:** sprint cố định + retro mỗi sprint.
-- **Kanban-like:** không sprint, WIP limit theo lane, pull liên tục.
-- **Spec-first nghiêm:** mọi epic bắt buộc qua PRD→Design→Tasks.
-- **Trunk-based vs branch-per-ticket:** cấu hình trong `protocol/branching.md`.
+Lifecycle trên là khung **mặc định**. Người dùng chọn một **template có sẵn** hoặc **viết workflow riêng** trong `.hatch/workflow.yaml`. Hatch ship các template:
 
-Hatch cung cấp khung + cơ chế; *chuẩn cụ thể* là cấu hình, không phải hard-code.
+- **`scrum`** (mặc định): sprint cố định + retro mỗi sprint.
+- **`kanban`:** không sprint, WIP limit theo lane, pull liên tục.
+- **`spec-first`:** mọi epic bắt buộc qua PRD→Design→Tasks trước khi vào backlog.
+- **`lite`:** chỉ `todo → doing → done` cho project nhỏ/cá nhân.
+
+`workflow.yaml` khai báo (xem [spec/workflow](../spec/workflow.schema.md)):
+- **lanes** — các trạng thái (= thư mục trong `board/`).
+- **transitions** — chuyển nào hợp lệ, ai (vai nào) được làm.
+- **gates** — điều kiện pass khi qua một transition (test, DoD, human approval).
+- **ceremonies** — sự kiện định kỳ (planning, standup-digest, retro) và ai chủ trì.
+
+Ví dụ một transition tùy biến:
+```yaml
+transitions:
+  - from: in-progress
+    to: review
+    by: [implementer]
+    gates: [tests-pass, lint-clean, handoff-note]
+```
+
+Đổi quy trình = sửa `workflow.yaml`. Board, protocol, và orchestrator đều đọc từ đây — Hatch cung cấp khung + cơ chế, *chuẩn cụ thể* luôn là cấu hình per-project, không hard-code.

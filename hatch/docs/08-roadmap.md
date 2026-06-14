@@ -8,7 +8,7 @@ Mọi thứ là file + git + quy ước. Agent tuân theo protocol thủ công; 
 
 **Giao được:**
 - Bộ docs này (đã có).
-- `hatch init` dạng **template thư mục** `.hatch/` để copy vào repo (charter mẫu, roles mẫu, protocol, board rỗng, registry mẫu).
+- `hatch init` dạng **template thư mục** `.hatch/` để copy vào repo (charter mẫu, roles mẫu, protocol, board rỗng, registry mẫu, `kb/` rỗng + `index.md`, `workflow.yaml` chọn template scrum/kanban/spec-first/lite).
 - Compile **thủ công**: hướng dẫn + checklist để CC tự sinh `CLAUDE.md`/`AGENTS.md`/`.kiro/steering/` từ SSOT (tái dùng skill overclaud).
 - Một **skill/agent overclaud** mở rộng: "thiết lập Hatch cho repo này" — hỏi vai, agent, rồi dựng `.hatch/`.
 
@@ -22,9 +22,10 @@ Thêm CLI `hatch` cho các thao tác xác định, **chưa spawn agent**:
 - `hatch init` (scaffold thật).
 - `hatch compile [--check]` — SSOT → output per-agent + manifest stale detection.
 - `hatch status` / `hatch standup` — đọc board/ledger, dashboard + digest.
-- `hatch gate` — chạy test/lint/DoD checklist.
+- `hatch gate` — chạy test/lint/DoD checklist (đọc gates từ `workflow.yaml`).
+- `hatch kb query <tag>` / `hatch kb add` — tra cứu + ghi Knowledge Base, cập nhật `index.md`.
 - `hatch sync` — đối chiếu board ↔ git ↔ PR.
-- git pre-commit hook: chặn output stale, validate frontmatter ticket.
+- git pre-commit hook: chặn output stale, validate frontmatter ticket + `workflow.yaml`/`registry.yaml`.
 
 **Tiêu chí xong:** không còn thao tác cơ học thủ công; agent vẫn được người/Conductor gọi tay, nhưng compile/status/gate đã tự động.
 

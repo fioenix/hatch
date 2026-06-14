@@ -1,10 +1,10 @@
 # 01 — Architecture
 
-## Sáu trụ
+## Bảy trụ
 
 ```
                     ┌─────────────────────────────┐
-                    │      ORCHESTRATOR (act)     │  ← Phase 3: EM/Scrum Master
+                    │     ORCHESTRATOR (hatch)    │  ← Phase 3: EM/Scrum Master
                     │  plan · run · gate · status │
                     └──────────────┬──────────────┘
                                    │ đọc/ghi
@@ -14,42 +14,62 @@
  │  CONTEXT   │  compile  │     BOARD      │  ghi vào │     LEDGER     │
  │  (SSOT)    │ ────────► │   (tickets)    │ ───────► │ (audit append) │
  └─────┬──────┘           └───────┬────────┘          └────────────────┘
-       │                          │ claim/execute
-       ▼ sinh ra                  ▼
+       │                          │ claim/execute              ▲
+       ▼ sinh ra                  ▼                            │ events
  ┌──────────────────────┐   ┌──────────────────────────────────┐
  │ CLAUDE.md / AGENTS.md │   │  AGENTS theo ROLES (registry)    │
  │ .kiro/steering/ …     │◄──│  Architect·Implementer·Reviewer  │
- └──────────────────────┘   └──────────────────────────────────┘
-        ▲                                  ▲
-        └──────── PROTOCOL (working agreements) ───────┘
+ └──────────────────────┘   └───────────────┬──────────────────┘
+        ▲                       đọc ▲        │ ghi (learnings/ADR)
+        │                           │        ▼
+        │                    ┌──────┴────────────────────┐
+        │                    │  KNOWLEDGE BASE (kb/)      │  ← bộ nhớ chung, đọc+ghi
+        │                    └────────────────────────────┘
+        └──────────── PROTOCOL + WORKFLOW (working agreements) ───────────┘
 ```
 
-1. **Context (SSOT)** — nguồn canonical duy nhất.
-2. **Compiler** — sinh file instruction native cho từng agent từ SSOT.
-3. **Roles + Registry** — định nghĩa vai và gán agent vào vai.
-4. **Board** — hàng đợi việc dạng ticket file.
-5. **Ledger** — sổ audit append-only.
-6. **Protocol** — quy ước phối hợp (claim/lock, handoff, branching, DoD).
+1. **Context (SSOT)** — nguồn canonical duy nhất, *đầu vào* compile (con người/Architect chủ yếu ghi).
+2. **Knowledge Base** (`kb/`) — bộ nhớ chung; agent đọc *và* ghi. SSOT là "config vào", KB là "tri thức vào-ra", Ledger là "sự kiện ra" (xem [09-knowledge-base](09-knowledge-base.md)).
+3. **Compiler** — sinh file instruction native cho từng agent từ SSOT.
+4. **Roles + Registry** — định nghĩa vai và gán agent vào vai (cấu hình per-project).
+5. **Board + Workflow** — hàng đợi ticket; lane/transition do `workflow.yaml` định nghĩa (template sửa được).
+6. **Ledger + Protocol** — sổ audit append-only + quy ước phối hợp (claim/lock, handoff, branching, DoD).
 7. **Orchestrator** — (Phase 3) CLI điều khiển toàn bộ.
+
+### Ba kho tri thức — đừng lẫn
+
+| Kho | Hướng | Ai ghi | Ví dụ |
+|---|---|---|---|
+| `context/` (SSOT) | vào (compile → agent) | Human / Architect | conventions, PRD, stack |
+| `kb/` (Knowledge Base) | vào **và** ra | Mọi agent | ADR, bài học, gotcha, ghi chú domain |
+| `ledger/` | ra (sự kiện) | Mọi agent | "ai claim/làm/gate cái gì, vì sao" |
 
 ## Layout `.hatch/` trong repo đích
 
 ```
 .hatch/
 ├── charter.md              # L0 — mission chung, nhỏ gọn (mọi agent đều nạp)
-├── registry.yaml           # roster agent + năng lực + binding vai
+├── registry.yaml           # roster agent + năng lực + binding vai (per-project)
+├── workflow.yaml           # quy trình: lane, transition, gate, ceremony (template, sửa được)
 │
-├── roles/                  # L1 — context theo vai, mỗi vai 1 file
+├── roles/                  # L1 — context theo vai, mỗi vai 1 file (user định nghĩa)
 │   ├── architect.md
 │   ├── implementer.md
 │   ├── reviewer.md
 │   ├── tester.md
 │   └── ...
 │
-├── context/                # SSOT — tri thức canonical, compile ra ngoài
+├── context/                # SSOT — tri thức canonical (config), compile ra ngoài
 │   ├── product/            #   PRD, domain, business rules
 │   ├── tech/               #   stack, conventions, kiến trúc
 │   └── shared.md           #   những gì mọi vai cần
+│
+├── kb/                     # KNOWLEDGE BASE — bộ nhớ chung, agent đọc+ghi
+│   ├── decisions/          #   ADR — quyết định kiến trúc + lý do
+│   ├── domain/             #   tri thức nghiệp vụ tích lũy
+│   ├── learnings/          #   bài học, gotcha, pitfall đã gặp
+│   ├── index.md            #   mục lục để tra cứu nhanh (tiết kiệm token)
+│   └── .meta.json          #   tag/owner/updated cho từng mục
 │
 ├── board/                  # tickets — mỗi ticket 1 file .md có frontmatter
 │   ├── backlog/
