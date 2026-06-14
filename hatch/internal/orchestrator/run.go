@@ -165,9 +165,11 @@ func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, o
 	if runErr != nil {
 		result = "failed: " + runErr.Error()
 	}
+	usd, tokens := extractUsage(buf.String(), agent.RatePerMTok)
 	_ = lg.Append(model.Entry{
 		Agent: agent.ID, Ticket: t.ID, Action: model.ActProgress,
 		Result: result, Why: fmt.Sprintf("%s finished (exit %d)", agent.ID, outcome.ExitCode),
+		CostUSD: usd, Tokens: tokens,
 	})
 	return outcome, nil
 }

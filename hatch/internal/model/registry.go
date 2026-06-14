@@ -12,6 +12,9 @@ type Agent struct {
 	WIP      int      `yaml:"wip,omitempty"`      // max concurrent tickets (0 = unlimited)
 	Sandbox  string   `yaml:"sandbox,omitempty"`  // capability hint for orchestrator (e.g. workspace-write)
 	Approval string   `yaml:"approval,omitempty"` // approval/permission mode hint
+
+	BudgetUSD   float64 `yaml:"budget_usd,omitempty"`    // "salary": cost ceiling per cycle (tracked, not enforced)
+	RatePerMTok float64 `yaml:"rate_per_mtok,omitempty"` // USD per 1M tokens, for cost estimate when provider gives only tokens
 }
 
 // Role is a bundle of responsibilities + boundaries + the L1 context to load.
@@ -25,10 +28,11 @@ type Role struct {
 
 // Policy captures team-wide governance toggles enforced at gates.
 type Policy struct {
-	NoSelfReview bool     `yaml:"no_self_review"`
-	HumanMerge   bool     `yaml:"human_merge"`
-	ProtectGlobs []string `yaml:"protect,omitempty"`     // paths agents may not touch
-	EscalateTo   string   `yaml:"escalate_to,omitempty"` // role/agent to escalate to (default conductor)
+	NoSelfReview  bool     `yaml:"no_self_review"`
+	HumanMerge    bool     `yaml:"human_merge"`
+	ProtectGlobs  []string `yaml:"protect,omitempty"`         // paths agents may not touch
+	EscalateTo    string   `yaml:"escalate_to,omitempty"`     // role/agent to escalate to (default conductor)
+	TeamBudgetUSD float64  `yaml:"team_budget_usd,omitempty"` // team cost ceiling per cycle (tracked, not enforced)
 }
 
 // WorkflowRef points the registry at the per-project workflow definition.

@@ -51,6 +51,8 @@ func NewRoot() *cobra.Command {
 		newMobCmd(),
 		newPresenceCmd(),
 		newOncallCmd(),
+		newCostCmd(),
+		newBudgetCmd(),
 	)
 	return root
 }

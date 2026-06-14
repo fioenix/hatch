@@ -39,6 +39,12 @@ func render(e model.Entry) string {
 	if e.Branch != "" {
 		fmt.Fprintf(&b, "- branch: %s\n", e.Branch)
 	}
+	if e.CostUSD > 0 {
+		fmt.Fprintf(&b, "- cost_usd: %.4f\n", e.CostUSD)
+	}
+	if e.Tokens > 0 {
+		fmt.Fprintf(&b, "- tokens: %d\n", e.Tokens)
+	}
 	if e.Handoff != "" {
 		fmt.Fprintf(&b, "- handoff: %s\n", e.Handoff)
 	}

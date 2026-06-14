@@ -23,6 +23,9 @@ func main() {
 		}
 	}
 	fmt.Println(reply(text))
+	// Emit a fake usage line so cost-capture is exercised end-to-end.
+	tokens := 200 + len(text)
+	fmt.Printf("{\"total_cost_usd\": %.4f, \"total_tokens\": %d}\n", float64(tokens)/100000.0, tokens)
 }
 
 // reply returns a deterministic mock response based on cues in the prompt.

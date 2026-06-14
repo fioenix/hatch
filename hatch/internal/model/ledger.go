@@ -29,4 +29,6 @@ type Entry struct {
 	Handoff string // handoff context (required when Action=handoff)
 	Branch  string
 	Note    string
+	CostUSD float64 // cost of this run/action (tracked)
+	Tokens  int     // tokens consumed
 }
