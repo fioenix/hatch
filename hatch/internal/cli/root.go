@@ -38,6 +38,12 @@ func NewRoot() *cobra.Command {
 		newBoardCmd(),
 		newSyncCmd(),
 		newHookCmd(),
+		newMsgCmd(),
+		newChannelCmd(),
+		newInboxCmd(),
+		newThreadCmd(),
+		newAskCmd(),
+		newConveneCmd(),
 	)
 	return root
 }

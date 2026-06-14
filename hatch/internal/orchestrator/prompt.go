@@ -39,6 +39,36 @@ func BuildPrompt(t model.Ticket, role string) string {
 	return b.String()
 }
 
+// BuildConsultPrompt frames a synchronous question from one agent to another:
+// the recipient sees the thread so far and answers in character.
+func BuildConsultPrompt(fromAgent, role, thread, threadRaw, question string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Bạn đang trả lời trực tiếp một đồng đội với vai **%s**.\n", role)
+	fmt.Fprintf(&b, "Thread `%s`. %s hỏi bạn:\n\n%s\n\n", thread, fromAgent, question)
+	if strings.TrimSpace(threadRaw) != "" {
+		b.WriteString("--- Bối cảnh thread tới giờ ---\n")
+		b.WriteString(strings.TrimSpace(threadRaw))
+		b.WriteString("\n--- hết bối cảnh ---\n\n")
+	}
+	b.WriteString("Trả lời NGẮN GỌN, đúng trọng tâm, đúng vai. Chỉ in nội dung trả lời (sẽ được ghi vào thread).")
+	return b.String()
+}
+
+// BuildMeetingPrompt frames one turn in a multi-agent meeting (convene).
+func BuildMeetingPrompt(role, thread, topic, threadRaw string, round, rounds int) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Bạn dự một cuộc họp đội với vai **%s** (vòng %d/%d).\n", role, round, rounds)
+	fmt.Fprintf(&b, "Chủ đề: %s\n\n", topic)
+	if strings.TrimSpace(threadRaw) != "" {
+		b.WriteString("--- Diễn biến tới giờ ---\n")
+		b.WriteString(strings.TrimSpace(threadRaw))
+		b.WriteString("\n--- hết ---\n\n")
+	}
+	b.WriteString("Đóng góp lượt của bạn: phản hồi ý đồng đội, nêu lo ngại/đề xuất từ góc nhìn vai của bạn. ")
+	b.WriteString("Nếu đã đồng thuận, mở đầu bằng `DECISION:` và chốt. In ngắn gọn (sẽ ghi vào thread).")
+	return b.String()
+}
+
 // BuildPlanPrompt is the prompt for a Conductor planning pass.
 func BuildPlanPrompt() string {
 	return strings.Join([]string{

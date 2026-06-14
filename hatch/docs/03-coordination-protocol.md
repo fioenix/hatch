@@ -20,7 +20,9 @@
 - **Pha PLAN** giống sprint planning: tập trung, do Conductor chủ trì, sinh ra ticket có chủ.
 - **Pha EXECUTE** giống ngày thường: workers tự kéo việc, async, phối hợp qua board + ledger.
 
-Không có lời gọi trực tiếp agent→agent. Mọi "giao tiếp" là **ghi vào file**, "lắng nghe" là **đọc file**. Đúng như dev không ghi đè não đồng nghiệp mà comment lên Jira/PR.
+**Điều phối công việc** đi qua artifact: không agent nào tự ý ghi đè trạng thái của agent khác — "giao tiếp" về *công việc* là ghi/đọc file (board + ledger), như dev comment lên Jira/PR thay vì ghi đè não nhau.
+
+> **Nhưng đội người còn nói chuyện trực tiếp** — hỏi nhau, @mention, họp. Hatch có tầng [communication](11-communication.md) riêng cho *đối thoại* (DM, ask/reply đồng bộ, convene họp), qua bus + orchestrator và **luôn on-the-record**. Phân vai rạch ròi: bus chở *dialogue*, board/ledger chở *state*. Không phải peer-socket ngầm — phương tiện chung có ghi âm, đúng như Slack/phòng họp của một đội thật.
 
 ## Board như một state machine
 
