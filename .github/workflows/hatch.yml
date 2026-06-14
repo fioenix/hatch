@@ -1,0 +1,31 @@
+name: hatch CI
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["hatch/**", ".github/workflows/hatch.yml"]
+  pull_request:
+    paths: ["hatch/**", ".github/workflows/hatch.yml"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hatch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: hatch/go.sum
+      - name: Verify modules tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+      - name: Lint (vet + gofmt)
+        run: make lint
+      - name: Test
+        run: make test
+      - name: Build
+        run: make build

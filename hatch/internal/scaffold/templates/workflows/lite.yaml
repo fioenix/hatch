@@ -1,0 +1,26 @@
+version: 1
+template: lite
+
+lanes:
+  - id: todo
+  - id: doing
+    wip-limit: 1
+  - id: done
+
+transitions:
+  - from: todo
+    to: doing
+    by: ["*"]
+    action: claim
+  - from: doing
+    to: done
+    by: ["*"]
+    action: done
+    gates: [tests-pass]
+  - from: doing
+    to: todo
+    by: ["*"]
+    action: progress
+
+gates:
+  tests-pass: { type: command, run: "make test" }

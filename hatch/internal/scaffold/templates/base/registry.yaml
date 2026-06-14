@@ -1,0 +1,57 @@
+version: 1
+project: ""   # tên project, hiển thị trong file compiled
+
+# Vai trò — template khởi đầu. Sửa/thêm/bớt tùy project (đây là cấu hình per-project).
+# Prose của mỗi vai nằm ở roles/<id>.md (L1). context_refs là SSOT compile kèm.
+roles:
+  - id: conductor
+    title: Conductor
+    context_refs: [charter.md]
+  - id: architect
+    title: Architect
+    context_refs: [context/tech, context/product]
+  - id: implementer
+    title: Implementer
+    context_refs: [context/tech]
+  - id: reviewer
+    title: Reviewer
+    context_refs: [context/tech]
+  - id: tester
+    title: Tester
+    context_refs: [context/tech]
+  - id: tech-writer
+    title: Tech Writer
+    context_refs: [context/product]
+
+# Roster agent — map vai ↔ agent theo điểm mạnh. `kind` chọn compile surface +
+# orchestrator adapter (xem docs/10-agent-adapters.md). `surfaces` để override.
+agents:
+  - id: claude-code
+    kind: claude
+    roles: [conductor, architect, reviewer]
+    wip: 2
+  - id: codex
+    kind: codex
+    roles: [implementer, tester]
+    sandbox: workspace-write
+    wip: 2
+  - id: kiro
+    kind: kiro
+    roles: [architect, implementer]
+    wip: 1
+  - id: gemini
+    kind: gemini
+    roles: [implementer, tech-writer]
+    wip: 1
+
+# Governance toggles enforced ở gate (xem docs/06-governance.md).
+policy:
+  no_self_review: true
+  human_merge: true
+  protect:
+    - ".hatch/charter.md"
+    - ".hatch/registry.yaml"
+
+# Quy trình tách riêng — sửa workflow.yaml để đổi lane/transition/gate.
+workflow:
+  ref: workflow.yaml

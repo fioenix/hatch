@@ -1,0 +1,4 @@
+/bin/
+hatch
+*.out
+*.test
