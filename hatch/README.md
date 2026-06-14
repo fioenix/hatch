@@ -92,6 +92,9 @@ Spec kỹ thuật: [registry](spec/registry.schema.md) · [ticket](spec/ticket.s
 Hatch là CLI viết bằng Go (single binary). Phase 1+2 đã chạy được:
 
 ```bash
+./scripts/onboard.sh         # build + dựng demo workspace (mock agent) để thử ngay — hoặc `make onboard`
+./scripts/onboard.sh --install  # thêm: go install hatch + hatch-mock lên PATH
+# hoặc thủ công:
 make build                  # → bin/hatch
 bin/hatch init -w scrum      # 8 template: scrum kanban spec-first lite dual-track shape-up stage-gate incident
 bin/hatch compile            # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering

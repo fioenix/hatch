@@ -3,7 +3,10 @@ PKG := ./...
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X github.com/fioenix/overclaud/hatch/internal/cli.Version=$(VERSION)
 
-.PHONY: build install test lint vet fmt tidy clean
+.PHONY: build install test lint vet fmt tidy clean onboard
+
+onboard: ## Build + spin up a local demo workspace (mock agent)
+	./scripts/onboard.sh
 
 build: ## Build the hatch + hatch-mock binaries into ./bin
 	@mkdir -p bin
