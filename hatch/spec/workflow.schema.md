@@ -81,6 +81,9 @@ spec:
 | `kanban` | + wip-limit | pull liên tục, không sprint |
 | `spec-first` | + cổng prd/design | mọi epic qua PRD→Design→Tasks |
 | `lite` | todo→doing→done | tối giản cho project nhỏ/cá nhân |
+| `dual-track` | ideas→discovery→ready→in-progress→review→done | dual-track agile: discovery song song delivery |
+| `shape-up` | pitch→bet→building→review→done | Shape Up: cược scope đã shaped, appetite cố định |
+| `stage-gate` | requirements→design→build→test→release→done | PDLC phân pha, sign-off mỗi cổng |
 
 User chọn một template rồi sửa, hoặc đặt `template: custom` và tự khai báo toàn bộ.
 

@@ -1,0 +1,76 @@
+version: 1
+template: stage-gate
+# Stage-Gate / phased PDLC: requirements → design → build → test → release.
+# Mỗi ranh giới pha là một "cổng" (gate) có review/sign-off. Hợp với sản phẩm
+# có ràng buộc tuân thủ, audit nặng, hoặc release theo mốc.
+
+lanes:
+  - id: requirements
+  - id: design
+  - id: build
+    wip-limit: 2
+  - id: test
+  - id: release
+  - id: done
+  - id: blocked
+    side: true
+
+transitions:
+  - from: requirements
+    to: design
+    by: [architect, conductor]
+    action: progress
+    gates: [requirements-signoff]
+  - from: design
+    to: build
+    by: [architect]
+    action: progress
+    gates: [design-review]
+  - from: build
+    to: test
+    by: [implementer]
+    action: handoff
+    gates: [tests-pass, lint-clean, handoff-note]
+  - from: test
+    to: release
+    by: [tester]
+    action: progress
+    gates: [qa-signoff]
+  - from: test
+    to: build
+    by: [tester]
+    action: review        # QA trả lại
+  - from: release
+    to: done
+    by: [reviewer]
+    action: done
+    gates: [human-merge]
+  - from: "*"
+    to: blocked
+    by: ["*"]
+    action: block
+  - from: blocked
+    to: build
+    by: ["*"]
+    action: unblock
+
+gates:
+  requirements-signoff: { type: human-gate }
+  design-review:        { type: checklist, ref: protocol/definition-of-done.md }
+  tests-pass:           { type: command, run: "make test" }
+  lint-clean:           { type: command, run: "make lint" }
+  handoff-note:         { type: required-field, field: handoff }
+  qa-signoff:           { type: checklist, ref: protocol/definition-of-done.md }
+  human-merge:          { type: human-gate }
+
+ceremonies:
+  gate-review:    { by: conductor, trigger: per-phase }
+  standup-digest: { by: conductor, trigger: daily }
+  retro:          { by: conductor, trigger: end-of-release, actions: [compact-ledger, promote-kb] }
+
+spec:
+  required-for: [epic]
+  artifacts: [requirements, design, tasks]
+  gates:
+    requirements: human-gate
+    design: review

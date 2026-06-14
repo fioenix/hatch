@@ -1,0 +1,68 @@
+version: 1
+template: dual-track
+# Dual-track agile (Marty Cagan): một nhánh discovery (làm rõ vấn đề/giải pháp)
+# chạy song song nhánh delivery (xây). Ticket "tốt nghiệp" discovery mới vào build.
+
+lanes:
+  - id: ideas
+  - id: discovery
+    wip-limit: 3
+  - id: ready
+  - id: in-progress
+    wip-limit: 2
+  - id: review
+  - id: done
+  - id: blocked
+    side: true
+
+transitions:
+  - from: ideas
+    to: discovery
+    by: [conductor, architect]
+    action: progress
+  - from: discovery
+    to: ready
+    by: [architect, conductor]
+    action: progress
+    gates: [discovery-signoff]
+  - from: ready
+    to: in-progress
+    by: [implementer, tester]
+    action: claim
+  - from: in-progress
+    to: review
+    by: [implementer, tester]
+    action: handoff
+    gates: [tests-pass, lint-clean, handoff-note]
+  - from: review
+    to: done
+    by: [reviewer]
+    action: done
+    gates: [dod-met, no-self-review, human-merge]
+  - from: review
+    to: in-progress
+    by: [reviewer]
+    action: review
+  - from: "*"
+    to: blocked
+    by: ["*"]
+    action: block
+  - from: blocked
+    to: in-progress
+    by: ["*"]
+    action: unblock
+
+gates:
+  discovery-signoff: { type: checklist, ref: protocol/definition-of-done.md }
+  tests-pass:        { type: command, run: "make test" }
+  lint-clean:        { type: command, run: "make lint" }
+  dod-met:           { type: checklist, ref: protocol/definition-of-done.md }
+  handoff-note:      { type: required-field, field: handoff }
+  no-self-review:    { type: policy, ref: no_self_review }
+  human-merge:       { type: human-gate }
+
+ceremonies:
+  discovery-review: { by: architect, trigger: weekly }
+  planning:         { by: conductor, trigger: manual }
+  standup-digest:   { by: conductor, trigger: daily }
+  retro:            { by: conductor, trigger: end-of-sprint, actions: [compact-ledger, promote-kb] }

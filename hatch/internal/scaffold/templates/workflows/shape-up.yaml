@@ -1,0 +1,62 @@
+version: 1
+template: shape-up
+# Shape Up (Basecamp): pitch được "shape" → đặt cược (bet) cho chu kỳ →
+# building trong appetite cố định → review → done. Không ước lượng task nhỏ;
+# cược cả scope đã shaped.
+
+lanes:
+  - id: pitch
+  - id: bet
+  - id: building
+    wip-limit: 2
+  - id: review
+  - id: done
+  - id: blocked
+    side: true
+
+transitions:
+  - from: pitch
+    to: bet
+    by: [architect, conductor]
+    action: progress
+    gates: [pitch-shaped]
+  - from: bet
+    to: building
+    by: [implementer, tester]
+    action: claim
+  - from: building
+    to: review
+    by: [implementer, tester]
+    action: handoff
+    gates: [tests-pass, lint-clean, handoff-note]
+  - from: review
+    to: done
+    by: [reviewer]
+    action: done
+    gates: [dod-met, no-self-review, human-merge]
+  - from: review
+    to: building
+    by: [reviewer]
+    action: review
+  - from: "*"
+    to: blocked
+    by: ["*"]
+    action: block
+  - from: blocked
+    to: building
+    by: ["*"]
+    action: unblock
+
+gates:
+  pitch-shaped:   { type: checklist, ref: protocol/definition-of-done.md }
+  tests-pass:     { type: command, run: "make test" }
+  lint-clean:     { type: command, run: "make lint" }
+  dod-met:        { type: checklist, ref: protocol/definition-of-done.md }
+  handoff-note:   { type: required-field, field: handoff }
+  no-self-review: { type: policy, ref: no_self_review }
+  human-merge:    { type: human-gate }
+
+ceremonies:
+  betting:        { by: conductor, trigger: end-of-cycle }
+  standup-digest: { by: conductor, trigger: daily }
+  cooldown:       { by: conductor, trigger: end-of-cycle, actions: [compact-ledger, promote-kb] }

@@ -85,7 +85,7 @@ Hatch là CLI viết bằng Go (single binary). Phase 1+2 đã chạy được:
 
 ```bash
 make build                  # → bin/hatch
-bin/hatch init -w scrum      # dựng .hatch/ (scrum|kanban|spec-first|lite)
+bin/hatch init -w scrum      # 7 template: scrum kanban spec-first lite dual-track shape-up stage-gate
 bin/hatch compile            # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering
 bin/hatch compile --check    # CI: fail nếu output stale so với SSOT
 bin/hatch validate           # kiểm tra registry + workflow + board

@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#fcaf16"))
-	laneStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2a2b86")).
+	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2563eb"))
+	laneStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7c3aed")).
 			BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
 	overWIP   = lipgloss.NewStyle().Foreground(lipgloss.Color("#d33"))
 	dimStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))

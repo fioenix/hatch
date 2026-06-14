@@ -17,7 +17,10 @@ var templates embed.FS
 
 // WorkflowTemplates lists the built-in workflow.yaml variants `hatch init`
 // can install (see docs/05-workflow.md).
-var WorkflowTemplates = []string{"scrum", "kanban", "spec-first", "lite"}
+var WorkflowTemplates = []string{
+	"scrum", "kanban", "spec-first", "lite",
+	"dual-track", "shape-up", "stage-gate",
+}
 
 // Options configure an init run.
 type Options struct {

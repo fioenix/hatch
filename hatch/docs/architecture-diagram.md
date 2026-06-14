@@ -1,19 +1,81 @@
 # Sơ đồ kiến trúc & workflow
 
-Ba góc nhìn của Hatch. Khối Mermaid render trực tiếp trên GitHub; ảnh PNG tương ứng nằm trong `assets/`.
+Bản plaintext là chính (đọc thẳng trong terminal/diff). Khối Mermaid bên dưới cho bản render trên GitHub.
 
-## 1. Kiến trúc hệ thống
+## 1. Kiến trúc hệ thống (plaintext)
 
-SSOT compile xuống từng surface agent; agents điều phối qua board/ledger; KB là bộ nhớ chung đọc-ghi; orchestrator spawn agent headless.
+```
+                         .hatch/  —  SINGLE SOURCE OF TRUTH
+        ┌──────────────────────────────────────────────────────────┐
+        │ charter.md(L0)  roles/*.md(L1)  context/(L2)               │
+        │ registry.yaml(ai giữ vai gì)    workflow.yaml(quy trình)   │
+        └───────────────┬──────────────────────────┬─────────────────┘
+                        │ hatch compile             │ workflow.yaml
+                        ▼                            ▼
+        ┌──────────────────────────────┐   ┌────────────────────────────┐
+        │ SURFACES (per-agent, sinh ra) │   │  WORKFLOW ENGINE + GATES    │
+        │ CLAUDE.md  AGENTS.md          │   │  transition · WIP · deps    │
+        │ GEMINI.md  .kiro/steering/    │   │  no-self-review · gates     │
+        │  (+ compiled/.manifest.json)  │   └──────────────┬──────────────┘
+        └───────────────┬───────────────┘                  │ authorise
+                        │ nạp L0+L1+con trỏ L2              │
+                        ▼                                   │
+        ┌──────────────────────────────┐   claim/move      │
+        │ AGENTS (mỗi con 1 process,    │◀──────────────────┘
+        │ KHÔNG chung RAM)              │
+        │ Claude · Codex · Gemini · Kiro│
+        └───┬───────────────┬───────────┘
+   spawn ▲  │ claim/move    │ tra cứu + đóng góp
+headless │  ▼               ▼
+ ┌───────┴──────┐   ┌───────────────────────────────────────────────┐
+ │ ORCHESTRATOR │   │           HỆ THỐNG FILE = DATABASE             │
+ │ run·plan·    │   │  board/  (vị trí thư mục = trạng thái ticket)  │
+ │ watch        │   │  ledger/ (append-only audit: who/what/why)     │
+ └──────────────┘   │  kb/     (Knowledge Base — đọc & GHI chung)     │
+                    └───────────────────────────────────────────────┘
+                          kb/ ──promote khi chín (retro)──► context/ (SSOT)
 
-![Kiến trúc hệ thống](assets/arch.png)
+  Ba kho tri thức:  SSOT = config VÀO  ·  KB = tri thức VÀO+RA  ·  ledger = sự kiện RA
+```
+
+## 2. Workflow — vòng đời ticket (plaintext, template `scrum`)
+
+```
+   ┌─────────┐  claim   ┌─────────────┐  handoff   ┌────────┐  done   ┌──────┐
+   │ backlog │ ───────► │ in-progress │ ─────────► │ review │ ──────► │ done │
+   └─────────┘ impl/test└─────────────┘ gates:     └────────┘ reviewer└──────┘
+                  ▲           │ │        tests·lint·    │      gates: dod·
+        unblock   │     block │ │        handoff-note   │      no-self-review·
+                  │           ▼ │                       │      human-merge
+              ┌─────────┐      │ └───────────────────────┘
+              │ blocked │◀─────┘   changes-requested (review → in-progress)
+              └─────────┘
+   (lane = thư mục trong board/ · mỗi mũi tên = transition trong workflow.yaml)
+```
+
+## 3. Vòng đời một ticket qua các agent (plaintext)
+
+```
+  Human ── hatch plan ─► Conductor(Claude) ── ticket new T-001 ─► board/ + ledger(note)
+                                                                       │
+  Implementer(Codex) ── hatch run --claim T-001 ─► claim (git push = lock) ─► ledger(claim)
+        │  đọc kb/ (ADR/learnings, L2)  ──►  code + test trong scope
+        └─ move → review  [gates: tests·lint·handoff] ─► ledger(handoff: đã làm/còn/cần)
+                                                                       │
+  Reviewer(Claude ≠ Codex) ── move → done [no-self-review · human-merge] ─► ledger(approved)
+                                          └─ ghi learning mới ─► kb/
+```
+
+---
+
+## Bản Mermaid (render trên GitHub)
 
 ```mermaid
 flowchart TB
-  classDef ssot fill:#2a2b86,color:#fff,stroke:#2a2b86;
-  classDef surf fill:#fcaf16,color:#1a1a1a,stroke:#c98a00;
-  classDef store fill:#eef,stroke:#2a2b86,color:#2a2b86;
-  classDef eng fill:#fff,stroke:#2a2b86,color:#2a2b86,stroke-width:2px;
+  classDef ssot fill:#1f2937,color:#fff,stroke:#111;
+  classDef surf fill:#2563eb,color:#fff,stroke:#1d4ed8;
+  classDef store fill:#eef2ff,stroke:#4338ca,color:#3730a3;
+  classDef eng fill:#fff,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
 
   subgraph SSOT["SSOT — nguồn canonical (.hatch/)"]
     direction LR
@@ -23,22 +85,19 @@ flowchart TB
     REG["registry.yaml"]:::ssot
     WF["workflow.yaml"]:::ssot
   end
-
   COMPILER{{"hatch compile"}}:::eng
   CH --> COMPILER
   RO --> COMPILER
   CX --> COMPILER
   REG --> COMPILER
-  COMPILER -. "manifest hash → stale detect" .-> MAN[("compiled/.manifest.json")]:::store
-
+  COMPILER -. "manifest → stale detect" .-> MAN[("compiled/.manifest.json")]:::store
   COMPILER --> S1["CLAUDE.md"]:::surf
-  COMPILER --> S2["AGENTS.md<br/>(Codex/Antigravity)"]:::surf
+  COMPILER --> S2["AGENTS.md"]:::surf
   COMPILER --> S3["GEMINI.md"]:::surf
   COMPILER --> S4[".kiro/steering/"]:::surf
-
-  subgraph AGENTS["Agents — mỗi con 1 process, KHÔNG chung RAM"]
+  subgraph AGENTS["Agents — mỗi con 1 process"]
     direction LR
-    A1["Claude Code"]
+    A1["Claude"]
     A2["Codex"]
     A3["Gemini"]
     A4["Kiro"]
@@ -47,80 +106,32 @@ flowchart TB
   S2 --> A2
   S3 --> A3
   S4 --> A4
-
   ORCH{{"orchestrator<br/>run · plan · watch"}}:::eng
-  ORCH == "spawn headless<br/>(claude -p · codex exec · …)" ==> AGENTS
-
-  ENGINE{{"workflow engine + gates<br/>(transition · no-self-review · WIP · deps)"}}:::eng
+  ORCH == "spawn headless" ==> AGENTS
+  ENGINE{{"workflow engine + gates"}}:::eng
   WF --> ENGINE
-
   subgraph STORE["Hệ thống file = database"]
     direction LR
-    BOARD[("board/ — tickets<br/>vị trí thư mục = trạng thái")]:::store
-    LEDGER[("ledger/ — append-only audit")]:::store
-    KB[("kb/ — Knowledge Base<br/>đọc & ghi chung")]:::store
+    BOARD[("board/")]:::store
+    LEDGER[("ledger/")]:::store
+    KB[("kb/ — Knowledge Base")]:::store
   end
-
   AGENTS == "claim / move" ==> ENGINE
   ENGINE --> BOARD
   ENGINE --> LEDGER
   AGENTS -- "tra cứu + đóng góp" --> KB
-  KB -. "promote khi chín (retro)" .-> CX
+  KB -. "promote (retro)" .-> CX
 ```
-
-## 2. Workflow — máy trạng thái ticket (template `scrum`)
-
-Lane = thư mục trong `board/`. Mỗi mũi tên là một transition do `workflow.yaml` định nghĩa; nhãn ghi rõ ai được làm + gate phải qua.
-
-![Workflow ticket](assets/workflow.png)
 
 ```mermaid
 stateDiagram-v2
   direction LR
   [*] --> backlog
-  backlog --> in_progress: claim · implementer/tester (deps done)
-  in_progress --> review: handoff — gates tests/lint/handoff-note
-  review --> done: done · reviewer — gates dod/no-self-review/human-merge
+  backlog --> in_progress: claim · impl/test (deps done)
+  in_progress --> review: handoff — tests/lint/handoff-note
+  review --> done: done · reviewer — dod/no-self-review/human-merge
   review --> in_progress: changes-requested
   in_progress --> blocked: block
   blocked --> in_progress: unblock
   done --> [*]
-
-  note right of backlog: vị trí thư mục = trạng thái
-  note right of review: no-self-review — reviewer khác implementer
-```
-
-## 3. Vòng đời một ticket (sequence)
-
-Conductor lập kế hoạch → Implementer claim & làm → gate → Reviewer duyệt. Mọi bước để lại ledger; tri thức vào KB.
-
-![Vòng đời ticket](assets/sequence.png)
-
-```mermaid
-sequenceDiagram
-  autonumber
-  actor H as Human
-  participant CC as Claude (Conductor)
-  participant B as board/
-  participant CX as Codex (Implementer)
-  participant K as kb/
-  participant RV as Claude (Reviewer)
-  participant L as ledger/
-
-  H->>CC: hatch plan
-  CC->>B: ticket new T-001 (role=implementer)
-  CC->>L: note · why=kế hoạch sprint
-
-  Note over CX: hatch run --claim T-001
-  CX->>B: claim → in-progress (git push = lock)
-  CX->>L: claim
-  CX->>K: đọc ADR/learnings liên quan (L2)
-  CX->>CX: code + test trong scope
-  CX->>B: move → review  ✓gates
-  CX->>L: handoff (đã làm/còn/cần)
-
-  Note over RV: no-self-review: RV ≠ CX
-  RV->>B: move → done  ⊙human-merge
-  RV->>L: review · approved
-  RV->>K: ghi learning mới
 ```
