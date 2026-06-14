@@ -56,6 +56,12 @@ func (l Layout) KBMeta() string          { return l.path(KBMetaFile) }
 func (l Layout) Presence() string        { return l.path(PresenceFile) }
 func (l Layout) Oncall() string          { return l.path(OncallFile) }
 func (l Layout) DocTemplates() string    { return l.path("templates", "docs") }
+func (l Layout) Runs(ticket string) string {
+	if ticket == "" || ticket == "-" {
+		ticket = "system"
+	}
+	return l.path("runs", ticket)
+}
 
 // RepoRoot is the directory that contains the .hatch directory.
 func (l Layout) RepoRoot() string { return filepath.Dir(l.Root) }

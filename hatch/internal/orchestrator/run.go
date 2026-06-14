@@ -147,8 +147,15 @@ func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, o
 		cmd.Stdin = strings.NewReader(inv.StdinStr)
 	}
 	var buf strings.Builder
-	cmd.Stdout = io.MultiWriter(out, &buf)
-	cmd.Stderr = io.MultiWriter(out, &buf)
+	writers := []io.Writer{out, &buf}
+	// Per-run transcript (raw stdout+stderr) for `hatch logs` + the TUI.
+	if tf, err := openTranscript(ws.Layout, ticketID, agent.ID); err == nil {
+		defer tf.Close()
+		writers = append(writers, tf)
+	}
+	mw := io.MultiWriter(writers...)
+	cmd.Stdout = mw
+	cmd.Stderr = mw
 
 	_ = lg.Append(model.Entry{
 		Agent: agent.ID, Ticket: t.ID, Action: model.ActStart,
