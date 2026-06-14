@@ -55,6 +55,7 @@ func NewRoot() *cobra.Command {
 		newBudgetCmd(),
 		newWorkloadCmd(),
 		newPerfCmd(),
+		newDocCmd(),
 	)
 	return root
 }
