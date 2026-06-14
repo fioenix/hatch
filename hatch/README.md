@@ -75,6 +75,8 @@ Bảng trên **chỉ là template khởi đầu**. Vai trò là do **người d�
 | 09 | [knowledge-base](docs/09-knowledge-base.md) | KB dùng chung: cấu trúc, đọc/ghi, vs SSOT/ledger |
 | 10 | [agent-adapters](docs/10-agent-adapters.md) | Compile surface + headless invocation từng agent CLI |
 
+Sơ đồ trực quan: [architecture-diagram](docs/architecture-diagram.md) (kiến trúc + workflow + sequence).
+
 Spec kỹ thuật: [registry](spec/registry.schema.md) · [ticket](spec/ticket.schema.md) · [ledger](spec/ledger.schema.md) · [workflow](spec/workflow.schema.md)
 
 ## CLI (`hatch`)
