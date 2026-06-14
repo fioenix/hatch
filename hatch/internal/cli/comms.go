@@ -391,7 +391,7 @@ func newAskCmd() *cobra.Command {
 }
 
 func newConveneCmd() *cobra.Command {
-	var thread, topic, agentsCSV, chair string
+	var thread, topic, agentsCSV, chair, decider string
 	var rounds int
 	var dryRun bool
 	var timeout time.Duration
@@ -431,7 +431,15 @@ func newConveneCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(out, "convene thread=%s rounds=%d agents=%s\n", thread, rounds, agentsCSV)
-			for r := 1; r <= rounds; r++ {
+			decided := false
+			recordDecision := func(by, turn string) {
+				body := strings.TrimSpace(strings.TrimPrefix(turn, "DECISION:"))
+				if e, err := decide.Record(ws, thread, topic, by, body); err == nil {
+					decided = true
+					fmt.Fprintf(out, "  ↳ recorded %s in kb/decisions/\n", e.ID)
+				}
+			}
+			for r := 1; r <= rounds && !decided; r++ {
 				for _, a := range participants {
 					raw, _ := bs.Raw(thread)
 					prompt := orchestrator.BuildMeetingPrompt(roleOf(a), thread, topic, raw, r, rounds)
@@ -455,17 +463,39 @@ func newConveneCmd() *cobra.Command {
 					}
 					// A meeting decision becomes a durable ADR in the KB.
 					if tt == bus.TypeDecision {
-						body := strings.TrimSpace(strings.TrimPrefix(turn, "DECISION:"))
-						if e, err := decide.Record(ws, thread, topic, a.ID, body); err == nil {
-							fmt.Fprintf(out, "  ↳ recorded %s in kb/decisions/\n", e.ID)
-						}
+						recordDecision(a.ID, turn)
+						break
 					}
 				}
+			}
+			// Tie-breaker: no consensus after all rounds → the decider settles it.
+			if !decided && decider != "" {
+				d, ok := ws.Registry.AgentByID(decider)
+				if !ok {
+					return fmt.Errorf("unknown decider %q", decider)
+				}
+				raw, _ := bs.Raw(thread)
+				fmt.Fprintf(out, "\n# tie-break · %s (%s)\n", d.ID, roleOf(d))
+				outcome, err := orchestrator.Execute(ws, d, thread,
+					orchestrator.BuildTieBreakPrompt(roleOf(d), thread, topic, raw),
+					orchestrator.RunOptions{DryRun: dryRun, Timeout: timeout, Stdout: out})
+				if err != nil {
+					return err
+				}
+				if outcome.Executed {
+					turn := strings.TrimSpace(outcome.Output)
+					bs.Post(bus.Message{Channel: thread, From: d.ID, To: []string{"*"}, Type: bus.TypeDecision, Body: turn})
+					recordDecision(d.ID, turn)
+				}
+			}
+			if !decided && decider == "" && !dryRun {
+				fmt.Fprintln(out, "\n(không đạt đồng thuận; chạy lại với --decider <agent> để phân xử)")
 			}
 			fmt.Fprintf(out, "\nmeeting recorded in thread %s\n", thread)
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&decider, "decider", "", "agent that breaks a tie if no DECISION is reached")
 	cmd.Flags().StringVar(&thread, "thread", "", "thread id (default: generated)")
 	cmd.Flags().StringVar(&topic, "topic", "", "meeting topic (required)")
 	cmd.Flags().StringVar(&agentsCSV, "agents", "", "participant agent ids, comma-separated (required)")

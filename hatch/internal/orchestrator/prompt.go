@@ -94,6 +94,18 @@ func BuildPairNavigatorPrompt(t model.Ticket, thread, threadRaw, driver string) 
 	return b.String()
 }
 
+// BuildTieBreakPrompt asks a decider to settle a meeting that ended without
+// consensus: weigh the thread and make the final call.
+func BuildTieBreakPrompt(role, thread, topic, threadRaw string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Cuộc họp về \"%s\" (thread `%s`) kết thúc mà CHƯA chốt. Bạn là người phân xử (vai **%s**).\n", topic, thread, role)
+	b.WriteString("Cân nhắc các lập luận dưới đây và RA QUYẾT ĐỊNH cuối cùng. Mở đầu bằng `DECISION:` rồi nêu lựa chọn + lý do ngắn gọn.\n\n")
+	if strings.TrimSpace(threadRaw) != "" {
+		b.WriteString("--- Diễn biến họp ---\n" + strings.TrimSpace(threadRaw) + "\n--- hết ---\n")
+	}
+	return b.String()
+}
+
 // BuildPlanPrompt is the prompt for a Conductor planning pass.
 func BuildPlanPrompt() string {
 	return strings.Join([]string{
