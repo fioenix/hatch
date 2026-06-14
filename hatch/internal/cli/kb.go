@@ -3,11 +3,13 @@ package cli
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
@@ -15,10 +17,27 @@ import (
 func newKBCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kb",
-		Short: "Shared Knowledge Base: add, query, reindex",
+		Short: "Shared Knowledge Base: add, query, reindex, link (Obsidian-aware)",
 	}
-	cmd.AddCommand(newKBAddCmd(), newKBQueryCmd(), newKBIndexCmd())
+	cmd.AddCommand(newKBAddCmd(), newKBQueryCmd(), newKBIndexCmd(),
+		newKBLinkCmd(), newKBBacklinksCmd(), newKBGraphCmd(), newKBOpenCmd())
 	return cmd
+}
+
+// kbFor builds a KB configured from the registry (vault location + wikilinks).
+func kbFor(ws *config.Workspace) *store.KB {
+	cfg := ws.Registry.KB
+	wikilinks := cfg.Wikilinks || cfg.Mode == "obsidian"
+	if cfg.Vault != "" {
+		root := cfg.Vault
+		if !filepath.IsAbs(root) {
+			root = filepath.Join(ws.Layout.RepoRoot(), root)
+		}
+		return store.NewKBVault(ws.Layout, root, wikilinks)
+	}
+	kb := store.NewKB(ws.Layout)
+	kb.Wikilinks = wikilinks
+	return kb
 }
 
 func newKBAddCmd() *cobra.Command {
@@ -44,7 +63,7 @@ func newKBAddCmd() *cobra.Command {
 					body = string(in)
 				}
 			}
-			kb := store.NewKB(ws.Layout)
+			kb := kbFor(ws)
 			id := kb.NextID(typ)
 			entry := model.KBEntry{
 				ID:      id,
@@ -92,7 +111,7 @@ func newKBQueryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			entries, err := store.NewKB(ws.Layout).Query(args)
+			entries, err := kbFor(ws).Query(args)
 			if err != nil {
 				return err
 			}
@@ -122,7 +141,7 @@ func newKBIndexCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := store.NewKB(ws.Layout).RebuildIndex(); err != nil {
+			if err := kbFor(ws).RebuildIndex(); err != nil {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "rebuilt kb/index.md")
@@ -151,4 +170,90 @@ func orHuman(a string) string {
 		return "human:operator"
 	}
 	return a
+}
+
+func newKBLinkCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "link <from-id> <to-id>",
+		Short: "Link two KB notes (adds to `related`; renders as [[wikilink]])",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			kb := kbFor(ws)
+			if err := kb.Link(args[0], args[1]); err != nil {
+				return err
+			}
+			_ = kb.RebuildIndex()
+			fmt.Fprintf(cmd.OutOrStdout(), "%s → %s linked\n", args[0], args[1])
+			return nil
+		},
+	}
+}
+
+func newKBBacklinksCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "backlinks <note>",
+		Short: "List notes that link to a note (id or name)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			bl, err := kbFor(ws).Backlinks(args[0])
+			if err != nil {
+				return err
+			}
+			if len(bl) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "no backlinks")
+			}
+			for _, id := range bl {
+				fmt.Fprintln(cmd.OutOrStdout(), id)
+			}
+			return nil
+		},
+	}
+}
+
+func newKBGraphCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "graph",
+		Short: "Print the KB link graph (note → linked notes)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			g, err := kbFor(ws).Graph()
+			if err != nil {
+				return err
+			}
+			if len(g) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "no links yet")
+			}
+			for from, tos := range g {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s → %s\n", from, strings.Join(tos, ", "))
+			}
+			return nil
+		},
+	}
+}
+
+func newKBOpenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "open <note>",
+		Short: "Print an obsidian:// URI to open a note in the app",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := loadWorkspace()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), kbFor(ws).ObsidianURI(args[0]))
+			return nil
+		},
+	}
 }

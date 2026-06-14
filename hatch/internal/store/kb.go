@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -12,15 +13,35 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/paths"
 )
 
-// KB reads and writes shared Knowledge Base entries.
-type KB struct{ L paths.Layout }
+// KB reads and writes shared Knowledge Base entries. Root overrides the vault
+// location (e.g. an external Obsidian vault); empty = .hatch/kb.
+type KB struct {
+	L         paths.Layout
+	Root      string // vault dir override
+	Wikilinks bool   // render links/index as [[wikilinks]]
+}
 
-// NewKB returns a knowledge base bound to a workspace layout.
+// NewKB returns a knowledge base bound to a workspace layout (default vault).
 func NewKB(l paths.Layout) *KB { return &KB{L: l} }
+
+// NewKBVault returns a KB rooted at an explicit vault directory.
+func NewKBVault(l paths.Layout, root string, wikilinks bool) *KB {
+	return &KB{L: l, Root: root, Wikilinks: wikilinks}
+}
+
+// dir returns the vault root.
+func (k *KB) dir() string {
+	if k.Root != "" {
+		return k.Root
+	}
+	return k.L.KB()
+}
+
+func (k *KB) indexPath() string { return filepath.Join(k.dir(), "index.md") }
 
 // List walks the kb/ subdirectories and returns all entries.
 func (k *KB) List() ([]model.KBEntry, error) {
-	root := k.L.KB()
+	root := k.dir()
 	var out []model.KBEntry
 	for _, sub := range []string{"decisions", "domain", "learnings"} {
 		dir := filepath.Join(root, sub)
@@ -100,7 +121,7 @@ func (k *KB) NextID(typ string) string {
 // Add writes a new KB entry to its type subdirectory and returns the path.
 func (k *KB) Add(e model.KBEntry) (string, error) {
 	sub := model.KBSubdir(e.Type)
-	dir := filepath.Join(k.L.KB(), sub)
+	dir := filepath.Join(k.dir(), sub)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -163,9 +184,122 @@ func (k *KB) RebuildIndex() error {
 			if len(e.Tags) > 0 {
 				tags = " — `" + strings.Join(e.Tags, "` `") + "`"
 			}
-			fmt.Fprintf(&b, "- [%s](%s) %s%s\n", e.ID, e.Path, e.Title, tags)
+			if k.Wikilinks {
+				fmt.Fprintf(&b, "- [[%s|%s %s]]%s\n", noteName(e), e.ID, e.Title, tags)
+			} else {
+				fmt.Fprintf(&b, "- [%s](%s) %s%s\n", e.ID, e.Path, e.Title, tags)
+			}
 		}
 		b.WriteString("\n")
 	}
-	return os.WriteFile(k.L.KBIndex(), []byte(b.String()), 0o644)
+	return os.WriteFile(k.indexPath(), []byte(b.String()), 0o644)
+}
+
+// noteName returns an entry's Obsidian note name (filename without extension).
+func noteName(e model.KBEntry) string {
+	return strings.TrimSuffix(filepath.Base(e.Path), ".md")
+}
+
+var wikilinkRe = regexp.MustCompile(`\[\[([^\]|#]+)`)
+
+// links returns the note names/ids an entry points to, from its Related field
+// and any [[wikilinks]] in its body.
+func links(e model.KBEntry) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s != "" && !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for _, r := range e.Related {
+		add(r)
+	}
+	for _, m := range wikilinkRe.FindAllStringSubmatch(e.Body, -1) {
+		add(m[1])
+	}
+	return out
+}
+
+// matches reports whether a link target refers to an entry (by id or note name).
+func matches(target string, e model.KBEntry) bool {
+	return target == e.ID || target == noteName(e) || target == e.Path
+}
+
+// Graph returns, per entry id, the ids of entries it links to (resolved).
+func (k *KB) Graph() (map[string][]string, error) {
+	all, err := k.List()
+	if err != nil {
+		return nil, err
+	}
+	g := map[string][]string{}
+	for _, e := range all {
+		for _, l := range links(e) {
+			for _, target := range all {
+				if matches(l, target) && target.ID != e.ID {
+					g[e.ID] = append(g[e.ID], target.ID)
+				}
+			}
+		}
+	}
+	return g, nil
+}
+
+// Backlinks returns ids of entries that link to the given note (id or name).
+func (k *KB) Backlinks(note string) ([]string, error) {
+	all, err := k.List()
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range all {
+		for _, l := range links(e) {
+			if l == note || matchesName(l, note, all) {
+				out = append(out, e.ID)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+func matchesName(link, note string, all []model.KBEntry) bool {
+	for _, e := range all {
+		if matches(note, e) && matches(link, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// Link adds toID to fromID's Related list and rewrites the note.
+func (k *KB) Link(fromID, toID string) error {
+	all, err := k.List()
+	if err != nil {
+		return err
+	}
+	for _, e := range all {
+		if e.ID == fromID {
+			for _, r := range e.Related {
+				if r == toID {
+					return nil // already linked
+				}
+			}
+			e.Related = append(e.Related, toID)
+			out, err := mdfront.Encode(e, e.Body)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(k.dir(), e.Path), out, 0o644)
+		}
+	}
+	return fmt.Errorf("kb entry %q not found", fromID)
+}
+
+// ObsidianURI builds an obsidian:// URI to open a note in the app.
+func (k *KB) ObsidianURI(note string) string {
+	vault := filepath.Base(k.dir())
+	return fmt.Sprintf("obsidian://open?vault=%s&file=%s", vault, note)
 }

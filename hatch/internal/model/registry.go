@@ -40,6 +40,13 @@ type WorkflowRef struct {
 	Ref string `yaml:"ref,omitempty"`
 }
 
+// KBConfig configures the Knowledge Base backend (see docs/15).
+type KBConfig struct {
+	Mode      string `yaml:"mode,omitempty"`      // native | obsidian
+	Vault     string `yaml:"vault,omitempty"`     // path (rel to repo) or "" = .hatch/kb
+	Wikilinks bool   `yaml:"wikilinks,omitempty"` // render links as [[wikilinks]]
+}
+
 // Registry mirrors spec/registry.schema.md: the team roster and bindings.
 type Registry struct {
 	Version  int         `yaml:"version"`
@@ -48,6 +55,7 @@ type Registry struct {
 	Agents   []Agent     `yaml:"agents"`
 	Policy   Policy      `yaml:"policy"`
 	Workflow WorkflowRef `yaml:"workflow,omitempty"`
+	KB       KBConfig    `yaml:"kb,omitempty"`
 }
 
 // AgentByID returns the agent with the given id, if present.
