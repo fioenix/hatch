@@ -115,6 +115,7 @@ bin/hatch channel ls                     # liệt kê channel/DM/thread
 bin/hatch ceremony standup               # digest theo agent + blockers → #standup
 bin/hatch ceremony retro --write         # tổng kết chu kỳ + ứng viên đề bạt KB→SSOT
 bin/hatch escalate T-001 --why "kẹt gate 2 lần"   # gọi senior/on-call (auto khi gate fail ≥2)
+bin/hatch pair T-001 --driver codex --navigator claude-code --rounds 3   # pair programming
 ```
 
 ## Trạng thái implement

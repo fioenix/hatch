@@ -6,6 +6,7 @@ import (
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
+	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/scaffold"
 )
 
@@ -46,4 +47,20 @@ func TestCommContextEmptyWhenNothing(t *testing.T) {
 	if got := commContext(ws, codex, "anything"); got != "" {
 		t.Fatalf("expected empty comm context, got: %s", got)
 	}
+}
+
+func TestPairPromptsAreRoleSpecific(t *testing.T) {
+	tk := mkTicket("T-007", "in-progress", "Export CSV")
+	d := BuildPairDriverPrompt(tk, "pair-T-007", "", "claude-code")
+	if !strings.Contains(d, "DRIVER") || !strings.Contains(d, "claude-code") {
+		t.Errorf("driver prompt wrong:\n%s", d)
+	}
+	n := BuildPairNavigatorPrompt(tk, "pair-T-007", "prev turn", "codex")
+	if !strings.Contains(n, "NAVIGATOR") || !strings.Contains(n, "READY") {
+		t.Errorf("navigator prompt wrong:\n%s", n)
+	}
+}
+
+func mkTicket(id, lane, title string) model.Ticket {
+	return model.Ticket{ID: id, Lane: lane, Status: lane, Title: title}
 }

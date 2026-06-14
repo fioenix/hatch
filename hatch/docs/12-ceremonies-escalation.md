@@ -29,6 +29,16 @@ Khép vòng từ họp tới tri thức của record: trong `hatch convene`, khi
 convene (#meet) ── "DECISION: dùng CSV streaming" ──► kb/decisions/ADR-00X + ledger note
 ```
 
+## Pairing (driver/navigator)
+
+Hai agent cùng một ticket như pair programming: **driver** triển khai từng bước nhỏ, **navigator** soi lỗi/rủi ro và gợi ý bước kế — luân phiên qua thread `pair-<ticket>`.
+
+```bash
+hatch pair T-001 --driver codex --navigator claude-code --rounds 3 [--claim]
+```
+
+Mỗi vòng: driver chạy một lượt (thấy feedback navigator gần nhất) → ghi thread → navigator review lượt đó → ghi thread. Navigator mở đầu `READY` ⇒ kết thúc sớm (đủ tốt để chuyển review). `--dry-run` xem cấu trúc lượt mà không spawn. Bắt buộc driver ≠ navigator.
+
 ## Vì sao quan trọng
 
 Ba mảnh này biến vòng đời từ "giao task → chạy" thành nhịp một đội thật: **đồng bộ hằng ngày** (standup), **học từ chu kỳ** (retro → đề bạt SSOT), **gọi cứu viện khi kẹt** (escalation), và **chốt quyết định thành ADR**. Tất cả vẫn append-only, auditable.

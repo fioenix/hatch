@@ -69,6 +69,31 @@ func BuildMeetingPrompt(role, thread, topic, threadRaw string, round, rounds int
 	return b.String()
 }
 
+// BuildPairDriverPrompt frames the driver's turn in a pairing session.
+func BuildPairDriverPrompt(t model.Ticket, thread, threadRaw, navigator string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Bạn là **DRIVER** trên ticket **%s** (%s), pair cùng navigator **%s**.\n", t.ID, t.Title, navigator)
+	b.WriteString("Triển khai BƯỚC NHỎ tiếp theo theo ticket. Nếu navigator có feedback dưới đây, xử lý nó trước.\n")
+	b.WriteString("Đọc `.hatch/board/" + t.Lane + "/" + t.Filename() + "` + context_refs. Không ra ngoài scope.\n")
+	b.WriteString("In NGẮN: vừa làm gì + câu hỏi/điểm cần navigator soi (sẽ ghi vào thread pairing).\n\n")
+	if strings.TrimSpace(threadRaw) != "" {
+		b.WriteString("--- Pairing thread tới giờ ---\n" + strings.TrimSpace(threadRaw) + "\n--- hết ---\n")
+	}
+	return b.String()
+}
+
+// BuildPairNavigatorPrompt frames the navigator's review turn.
+func BuildPairNavigatorPrompt(t model.Ticket, thread, threadRaw, driver string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Bạn là **NAVIGATOR** trên ticket **%s** (%s), pair cùng driver **%s**.\n", t.ID, t.Title, driver)
+	b.WriteString("Soi việc driver vừa làm (dưới): lỗi, rủi ro, ca biên thiếu, sai scope, vi phạm DoD.\n")
+	b.WriteString("Gợi ý bước kế cụ thể. NGẮN GỌN. Nếu đã đủ tốt để chuyển review, mở đầu bằng `READY`.\n\n")
+	if strings.TrimSpace(threadRaw) != "" {
+		b.WriteString("--- Pairing thread tới giờ ---\n" + strings.TrimSpace(threadRaw) + "\n--- hết ---\n")
+	}
+	return b.String()
+}
+
 // BuildPlanPrompt is the prompt for a Conductor planning pass.
 func BuildPlanPrompt() string {
 	return strings.Join([]string{
