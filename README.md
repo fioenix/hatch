@@ -2,6 +2,8 @@
 
 Optimize how Claude works for you — across every surface.
 
+> **Đang nâng cấp lên đa-agent → [Hatch](hatch/README.md).** overclaud (single-agent) đang được nâng thành một harness điều phối **nhiều coding agent** (Claude Code, Codex, Kiro, Antigravity) trên cùng một repo, tối ưu token, theo quy trình kiểu Agile. overclaud hiện tại trở thành compiler backend cho Claude bên trong Hatch. Sản phẩm thuộc hệ sinh thái **Finolabs**. Xem bộ thiết kế ở [`hatch/`](hatch/README.md).
+
 Claude reads your instructions every message, but most users either don't set them up, put everything in one place, or waste tokens on vague guidance. **overclaud** fixes that.
 
 ## What This Is
@@ -129,9 +131,13 @@ overclaud/
 │       ├── layers.md               # Complete layer architecture
 │       ├── token-optimization.md   # Token efficiency techniques
 │       └── common-mistakes.md      # Anti-patterns to avoid
-└── guides/
-    ├── layering-strategy.md        # What goes where — decision guide
-    └── contributing-templates.md   # How to contribute new templates
+├── guides/
+│   ├── layering-strategy.md        # What goes where — decision guide
+│   └── contributing-templates.md   # How to contribute new templates
+└── hatch/                          # Multi-agent upgrade (design docs)
+    ├── README.md                   # Hatch — multi-agent harness overview
+    ├── docs/                       # 00-vision … 08-roadmap
+    └── spec/                       # registry / ticket / ledger schemas
 ```
 
 ## Contributing
