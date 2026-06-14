@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/store"
@@ -16,9 +17,10 @@ import (
 
 // RunOptions parameterise an orchestrated run.
 type RunOptions struct {
-	DryRun  bool          // print the invocation, don't execute
-	Timeout time.Duration // 0 = no timeout
-	Stdout  io.Writer     // live output sink (defaults to os.Stdout)
+	DryRun    bool          // print the invocation, don't execute
+	Timeout   time.Duration // 0 = no timeout
+	Stdout    io.Writer     // live output sink (defaults to os.Stdout)
+	SkipComms bool          // don't prepend inbox + conversation recall
 }
 
 // RunOutcome reports the result of a run.
@@ -30,9 +32,66 @@ type RunOutcome struct {
 	Err        error
 }
 
-// Run builds the ticket prompt and executes the agent for that ticket.
+// Run builds the ticket prompt and executes the agent for that ticket. Like a
+// teammate starting work, the agent first "reads the room": its unread inbox
+// plus a recall of conversation relevant to the ticket are prepended (unless
+// SkipComms), and the inbox is marked read after a successful run.
 func Run(ws *config.Workspace, agent model.Agent, t model.Ticket, role string, opt RunOptions) (*RunOutcome, error) {
-	return Execute(ws, agent, t.ID, BuildPrompt(t, role), opt)
+	prompt := BuildPrompt(t, role)
+	if !opt.SkipComms {
+		if comm := commContext(ws, agent, t.Title); comm != "" {
+			prompt = comm + "\n\n" + prompt
+		}
+	}
+	out, err := Execute(ws, agent, t.ID, prompt, opt)
+	if err == nil && out != nil && out.Executed && !opt.SkipComms {
+		_ = bus.New(ws.Layout).MarkRead(agent.ID)
+	}
+	return out, err
+}
+
+// commContext gathers the agent's unread inbox and a query-scoped recall of
+// recent conversation, formatted as a compact, token-bounded block.
+func commContext(ws *config.Workspace, agent model.Agent, query string) string {
+	b := bus.New(ws.Layout)
+	inbox, _ := b.Inbox(agent.ID, agent.Roles)
+	subs := b.Subscriptions(agent.ID)
+	recall, _ := b.Search(bus.SearchOpts{Query: query, Channels: subs, Limit: 5})
+
+	if len(inbox) == 0 && len(recall) == 0 {
+		return ""
+	}
+	var s strings.Builder
+	s.WriteString("## Hộp thư & bối cảnh trao đổi (đọc nhanh trước khi vào việc)\n")
+	if len(inbox) > 0 {
+		s.WriteString("\n### Inbox — cần để ý (DM/@mention/broadcast)\n")
+		for _, m := range capMsgs(inbox, 10) {
+			fmt.Fprintf(&s, "- [%s] %s · %s: %s\n", m.Type, m.Channel, m.From, snippet(m.Body))
+		}
+	}
+	if len(recall) > 0 {
+		s.WriteString("\n### Liên quan tới ticket (recall, không cần trả lời hết)\n")
+		for _, m := range recall {
+			fmt.Fprintf(&s, "- %s · %s: %s\n", m.Channel, m.From, snippet(m.Body))
+		}
+	}
+	s.WriteString("\nTrả lời/ghi nhận nếu @mention đích danh; còn lại chỉ là bối cảnh.")
+	return s.String()
+}
+
+func capMsgs(ms []bus.Message, n int) []bus.Message {
+	if len(ms) > n {
+		return ms[len(ms)-n:]
+	}
+	return ms
+}
+
+func snippet(s string) string {
+	s = strings.ReplaceAll(strings.TrimSpace(s), "\n", " ")
+	if len(s) > 120 {
+		return s[:120] + "…"
+	}
+	return s
 }
 
 // Execute builds and (unless DryRun) runs an agent against an arbitrary prompt,

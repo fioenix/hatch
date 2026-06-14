@@ -38,9 +38,13 @@ func (b *Bus) Search(o SearchOpts) ([]Message, error) {
 	for _, c := range scope {
 		allow[safeThread(c)] = true
 	}
-	q := strings.ToLower(o.Query)
+	tokens := queryTokens(o.Query)
 
-	var hits []Message
+	type scored struct {
+		m     Message
+		score int
+	}
+	var hits []scored
 	channels, err := b.Channels()
 	if err != nil {
 		return nil, err
@@ -60,15 +64,54 @@ func (b *Bus) Search(o SearchOpts) ([]Message, error) {
 			if o.Type != "" && m.Type != o.Type {
 				continue
 			}
-			if q != "" && !strings.Contains(strings.ToLower(m.Body), q) && !strings.Contains(strings.ToLower(m.From), q) {
+			score := matchScore(tokens, m)
+			if len(tokens) > 0 && score == 0 {
 				continue
 			}
-			hits = append(hits, m)
+			hits = append(hits, scored{m, score})
 		}
 	}
-	sort.Slice(hits, func(i, j int) bool { return hits[i].TS > hits[j].TS })
-	if len(hits) > limit {
-		hits = hits[:limit]
+	// Rank by number of distinct query tokens matched, then by recency.
+	sort.Slice(hits, func(i, j int) bool {
+		if hits[i].score != hits[j].score {
+			return hits[i].score > hits[j].score
+		}
+		return hits[i].m.TS > hits[j].m.TS
+	})
+	out := make([]Message, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, h.m)
 	}
-	return hits, nil
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+// queryTokens lowercases the query and keeps tokens of length >= 2.
+func queryTokens(q string) []string {
+	var out []string
+	for _, t := range strings.FieldsFunc(strings.ToLower(q), func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r >= 'à' && r <= 'ỹ')
+	}) {
+		if len([]rune(t)) >= 2 {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// matchScore counts how many distinct query tokens appear in body or sender.
+func matchScore(tokens []string, m Message) int {
+	if len(tokens) == 0 {
+		return 0
+	}
+	hay := strings.ToLower(m.Body + " " + m.From)
+	n := 0
+	for _, t := range tokens {
+		if strings.Contains(hay, t) {
+			n++
+		}
+	}
+	return n
 }

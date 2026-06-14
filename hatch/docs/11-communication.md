@@ -58,6 +58,12 @@ hatch search "encoding csv" --agent codex       # recall liên quan trong scope 
 hatch search "human-merge" --all --limit 10     # tra toàn bộ khi cần
 ```
 
+## Tự động "đọc room" khi vào việc
+
+Như một người vào ca mở Slack trước khi code, `hatch run <ticket>` tự **chèn vào prompt của agent**: (1) **inbox** chưa đọc (DM/@mention/broadcast) và (2) **recall** hội thoại liên quan tới ticket (token-match, scope theo channel đã subscribe, cap nhỏ). Sau khi chạy xong, inbox được đánh dấu đã đọc. Tắt bằng `--no-catch-up`.
+
+Nhờ vậy agent "vào việc đã nắm bối cảnh trao đổi" mà vẫn token-bounded — giao tiếp trở thành một phần ngữ cảnh L2 tự động, không phải đổ cả bus.
+
 ## Ba kiểu giao tiếp
 
 ### 1. Channel · DM · @mention · thread (async)

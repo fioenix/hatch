@@ -38,7 +38,7 @@ func pickAgent(ws *config.Workspace, explicit, role string) (model.Agent, error)
 
 func newRunCmd() *cobra.Command {
 	var agentID string
-	var dryRun, claim, worktree bool
+	var dryRun, claim, worktree, noCatchUp bool
 	var timeout time.Duration
 	cmd := &cobra.Command{
 		Use:   "run <ticket>",
@@ -82,7 +82,7 @@ func newRunCmd() *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "→ %s (%s) on %s as %s\n", agent.ID, agent.Kind, t.ID, t.Role)
 			out, err := orchestrator.Run(ws, agent, t, t.Role, orchestrator.RunOptions{
-				DryRun: dryRun, Timeout: timeout, Stdout: cmd.OutOrStdout(),
+				DryRun: dryRun, Timeout: timeout, Stdout: cmd.OutOrStdout(), SkipComms: noCatchUp,
 			})
 			if err != nil {
 				return err
@@ -97,6 +97,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the invocation without executing")
 	cmd.Flags().BoolVar(&claim, "claim", false, "claim the ticket before running")
 	cmd.Flags().BoolVar(&worktree, "worktree", false, "run in an isolated git worktree")
+	cmd.Flags().BoolVar(&noCatchUp, "no-catch-up", false, "don't prepend inbox + conversation recall")
 	cmd.Flags().DurationVar(&timeout, "timeout", 0, "kill the agent after this duration (0 = none)")
 	return cmd
 }
