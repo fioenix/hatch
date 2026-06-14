@@ -19,7 +19,7 @@ var templates embed.FS
 // can install (see docs/05-workflow.md).
 var WorkflowTemplates = []string{
 	"scrum", "kanban", "spec-first", "lite",
-	"dual-track", "shape-up", "stage-gate",
+	"dual-track", "shape-up", "stage-gate", "incident",
 }
 
 // Options configure an init run.

@@ -11,6 +11,8 @@ Những nghi thức làm cho Hatch hành xử như một squad người thật, 
 | `hatch ceremony standup [--days N] [--post]` | standup hằng ngày | Digest theo agent từ ledger (đã làm gì) + blockers từ lane blocked; mặc định post vào `#standup`. |
 | `hatch ceremony retro [--write]` | retrospective cuối chu kỳ | Tổng kết: done / blocks / gate failures / decisions; liệt kê **ứng viên đề bạt KB→SSOT** (learnings). `--write` lưu `ledger/retro-<date>.md`. |
 | `hatch ceremony planning [--dry-run]` | sprint planning | Spawn Conductor bẻ việc (như `hatch plan`). |
+| `hatch ceremony demo [--post]` | sprint review / demo | Trình diễn việc ở lane terminal; post `#demo`. |
+| `hatch ceremony grooming` | backlog refinement | Soi ticket backlog thiếu role/priority/acceptance. |
 
 Chủ trì (`chair`) lấy từ `workflow.yaml > ceremonies.<name>.by`, mặc định `human:facilitator`.
 
@@ -20,6 +22,20 @@ Như dev kẹt thì gọi senior. Đích escalate = `registry.policy.escalate_to
 
 - **Thủ công:** `hatch escalate <ticket> --why "..."` → ghi ledger `action: escalate` + post `#escalations` (tag đích danh `@target`).
 - **Tự động:** khi một ticket **fail gate ≥ 2 lần**, workflow engine tự escalate một lần (không spam) — xem [governance](06-governance.md). "Blocked quá lâu" có thể quét bằng cron + `hatch escalate`.
+
+## On-call & incidents
+
+Như đội có lịch trực: `hatch oncall set --rotation a,b,c` định nghĩa vòng trực, `hatch oncall` xem ai đang trực, `hatch oncall rotate` bàn giao pager (báo `#oncall`). **Escalation tự nhắm người đang trực** trước (rồi mới tới `policy.escalate_to` → Conductor → `human:lead`).
+
+Template workflow **`incident`** (`hatch init -w incident`): `detected → triage → mitigating → resolved → postmortem`, gate `fix-verified` (test) + `postmortem-written`. Ghép on-call + escalation tự động khi kẹt = quy trình ứng cứu sự cố đầy đủ.
+
+## Presence / capacity
+
+`hatch presence` cho thấy ai `available/busy/paused/offline` + tải WIP; `hatch presence set <agent> --status …`. Khâu phân việc (`run`/`watch`/pairing) **bỏ qua agent paused/offline và ưu tiên agent ít tải nhất dưới WIP** — như lead giao cho người đang rảnh.
+
+## Mob
+
+`hatch mob <ticket> --agents a,b,c` mở rộng pairing cho 3+ agent: **driver xoay vòng mỗi vòng**, còn lại navigate; kết thúc sớm khi đa số navigator `READY`.
 
 ## Decisions → ADR
 

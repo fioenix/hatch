@@ -1,0 +1,55 @@
+version: 1
+template: incident
+# Incident response: detected → triage → mitigating → resolved → postmortem.
+# Dùng cho on-call/sự cố vận hành. Ghép với `hatch oncall` (người trực) và
+# escalation tự động khi kẹt.
+
+lanes:
+  - id: detected
+  - id: triage
+    wip-limit: 3
+  - id: mitigating
+    wip-limit: 2
+  - id: resolved
+  - id: postmortem
+  - id: blocked
+    side: true
+
+transitions:
+  - from: detected
+    to: triage
+    by: [reviewer, conductor, tester]
+    action: claim
+  - from: triage
+    to: mitigating
+    by: [implementer, reviewer]
+    action: progress
+  - from: mitigating
+    to: resolved
+    by: [implementer]
+    action: progress
+    gates: [fix-verified]
+  - from: resolved
+    to: postmortem
+    by: [conductor, reviewer]
+    action: progress
+    gates: [postmortem-written]
+  - from: mitigating
+    to: triage
+    by: [implementer, reviewer]
+    action: progress      # mitigation failed, re-triage
+  - from: "*"
+    to: blocked
+    by: ["*"]
+    action: block
+  - from: blocked
+    to: mitigating
+    by: ["*"]
+    action: unblock
+
+gates:
+  fix-verified:      { type: command, run: "make test" }
+  postmortem-written: { type: required-field, field: handoff }
+
+ceremonies:
+  postmortem-review: { by: conductor, trigger: per-incident, actions: [promote-kb] }

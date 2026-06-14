@@ -84,6 +84,7 @@ spec:
 | `dual-track` | ideas→discovery→ready→in-progress→review→done | dual-track agile: discovery song song delivery |
 | `shape-up` | pitch→bet→building→review→done | Shape Up: cược scope đã shaped, appetite cố định |
 | `stage-gate` | requirements→design→build→test→release→done | PDLC phân pha, sign-off mỗi cổng |
+| `incident` | detected→triage→mitigating→resolved→postmortem | ứng cứu sự cố; ghép `hatch oncall` + escalation |
 
 User chọn một template rồi sửa, hoặc đặt `template: custom` và tự khai báo toàn bộ.
 

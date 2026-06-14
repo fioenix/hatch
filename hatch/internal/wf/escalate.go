@@ -7,6 +7,7 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
+	"github.com/fioenix/overclaud/hatch/internal/oncall"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
 
@@ -14,9 +15,12 @@ import (
 // an automatic escalation (like a teammate flagging a senior after retries).
 const escalationThreshold = 2
 
-// EscalateTarget resolves who escalations go to: registry policy, else the
-// first conductor, else a human lead.
+// EscalateTarget resolves who escalations go to: the current on-call, else
+// registry policy, else the first conductor, else a human lead.
 func EscalateTarget(ws *config.Workspace) string {
+	if oc := oncall.Load(ws.Layout).Now(); oc != "" {
+		return oc
+	}
 	if ws.Registry.Policy.EscalateTo != "" {
 		return ws.Registry.Policy.EscalateTo
 	}

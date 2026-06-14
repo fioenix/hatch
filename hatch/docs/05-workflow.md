@@ -72,6 +72,7 @@ Lifecycle trên là khung **mặc định**. Người dùng chọn một **templ
 | **`dual-track`** | ideas → discovery → ready → … | dual-track agile: discovery ∥ delivery |
 | **`shape-up`** | pitch → bet → building → … | chu kỳ cố định, cược scope đã shaped |
 | **`stage-gate`** | requirements → design → build → test → release | PDLC phân pha, tuân thủ/audit nặng |
+| **`incident`** | detected → triage → mitigating → resolved → postmortem | ứng cứu sự cố (ghép on-call + escalation) |
 
 `workflow.yaml` khai báo (xem [spec/workflow](../spec/workflow.schema.md)):
 - **lanes** — các trạng thái (= thư mục trong `board/`).

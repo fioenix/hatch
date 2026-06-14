@@ -87,7 +87,7 @@ Hatch là CLI viết bằng Go (single binary). Phase 1+2 đã chạy được:
 
 ```bash
 make build                  # → bin/hatch
-bin/hatch init -w scrum      # 7 template: scrum kanban spec-first lite dual-track shape-up stage-gate
+bin/hatch init -w scrum      # 8 template: scrum kanban spec-first lite dual-track shape-up stage-gate incident
 bin/hatch compile            # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering
 bin/hatch compile --check    # CI: fail nếu output stale so với SSOT
 bin/hatch validate           # kiểm tra registry + workflow + board
@@ -116,6 +116,10 @@ bin/hatch ceremony standup               # digest theo agent + blockers → #sta
 bin/hatch ceremony retro --write         # tổng kết chu kỳ + ứng viên đề bạt KB→SSOT
 bin/hatch escalate T-001 --why "kẹt gate 2 lần"   # gọi senior/on-call (auto khi gate fail ≥2)
 bin/hatch pair T-001 --driver codex --navigator claude-code --rounds 3   # pair programming
+bin/hatch mob T-001 --agents codex,claude-code,gemini    # mob (driver xoay vòng)
+bin/hatch ceremony demo · grooming       # sprint review · backlog refinement
+bin/hatch presence set kiro --status offline --note PTO  # availability → phân việc theo capacity
+bin/hatch oncall set --rotation claude-code,codex        # lịch trực; escalation nhắm người trực
 ```
 
 ## Trạng thái implement
