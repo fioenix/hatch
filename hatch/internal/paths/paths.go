@@ -16,6 +16,8 @@ const (
 	CharterFile  = "charter.md"
 	RegistryFile = "registry.yaml"
 	WorkflowFile = "workflow.yaml"
+	PresenceFile = "presence.json"
+	OncallFile   = "oncall.json"
 
 	RolesDir    = "roles"
 	ContextDir  = "context"
@@ -51,6 +53,8 @@ func (l Layout) Compiled() string        { return l.path(CompiledDir) }
 func (l Layout) Manifest() string        { return l.path(ManifestFile) }
 func (l Layout) KBIndex() string         { return l.path(KBIndexFile) }
 func (l Layout) KBMeta() string          { return l.path(KBMetaFile) }
+func (l Layout) Presence() string        { return l.path(PresenceFile) }
+func (l Layout) Oncall() string          { return l.path(OncallFile) }
 
 // RepoRoot is the directory that contains the .hatch directory.
 func (l Layout) RepoRoot() string { return filepath.Dir(l.Root) }

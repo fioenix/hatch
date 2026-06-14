@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -9,12 +10,14 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/orchestrator"
+	"github.com/fioenix/overclaud/hatch/internal/presence"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 	"github.com/fioenix/overclaud/hatch/internal/wf"
 )
 
 // pickAgent returns the agent to run a ticket: the explicit id if given, else
-// the first registry agent eligible for the role and available on PATH.
+// a capacity-aware choice — eligible for the role, present (not paused/offline),
+// and least-loaded (under WIP first), like a lead assigning to whoever's free.
 func pickAgent(ws *config.Workspace, explicit, role string) (model.Agent, error) {
 	if explicit != "" {
 		a, ok := ws.Registry.AgentByID(explicit)
@@ -27,13 +30,58 @@ func pickAgent(ws *config.Workspace, explicit, role string) (model.Agent, error)
 	if len(candidates) == 0 {
 		return model.Agent{}, fmt.Errorf("no agent in registry holds role %q", role)
 	}
+	pres := presence.Load(ws.Layout)
+	load := wipLoad(ws)
+
+	var free []model.Agent
 	for _, a := range candidates {
-		if orchestrator.Available(a) {
-			return a, nil
+		if pres.CanTakeWork(a.ID) {
+			free = append(free, a)
 		}
 	}
-	// none installed; return the first so --dry-run still works.
-	return candidates[0], nil
+	if len(free) == 0 {
+		return model.Agent{}, fmt.Errorf("no available agent for role %q (all paused/offline)", role)
+	}
+	sort.SliceStable(free, func(i, j int) bool {
+		oi, oj := overWIP(free[i], load), overWIP(free[j], load)
+		if oi != oj {
+			return !oi // under-WIP first
+		}
+		if load[free[i].ID] != load[free[j].ID] {
+			return load[free[i].ID] < load[free[j].ID] // least loaded
+		}
+		return free[i].ID < free[j].ID
+	})
+	return free[0], nil
+}
+
+// wipLoad counts in-flight tickets (assignee set, in a non-terminal, non-side
+// lane) per agent.
+func wipLoad(ws *config.Workspace) map[string]int {
+	load := map[string]int{}
+	outgoing := map[string]bool{}
+	for _, tr := range ws.Workflow.Transitions {
+		if tr.From != "*" {
+			outgoing[tr.From] = true
+		}
+	}
+	b := store.NewBoard(ws.Layout)
+	for _, l := range ws.Workflow.Lanes {
+		if l.Side || !outgoing[l.ID] { // skip side + terminal lanes
+			continue
+		}
+		ts, _ := b.ListLane(l.ID)
+		for _, t := range ts {
+			if t.Assignee != "" {
+				load[t.Assignee]++
+			}
+		}
+	}
+	return load
+}
+
+func overWIP(a model.Agent, load map[string]int) bool {
+	return a.WIP > 0 && load[a.ID] >= a.WIP
 }
 
 func newRunCmd() *cobra.Command {
