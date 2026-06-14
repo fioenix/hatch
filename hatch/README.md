@@ -81,6 +81,7 @@ Bảng trên **chỉ là template khởi đầu**. Vai trò là do **người d�
 | 15 | [obsidian-kb](docs/15-obsidian-kb.md) | (thiết kế) Obsidian vault làm KB chính qua CLI |
 | 16 | [document-templates](docs/16-document-templates.md) | (thiết kế) Template/spec tài liệu theo framework, custom được |
 | 17 | [pre-implementation](docs/17-pre-implementation.md) | Quyết định cần chốt trước khi implement toàn bộ |
+| 18 | [observability](docs/18-observability.md) | (thiết kế) Quan sát agents: transcript · TUI · tmux/Zellij |
 
 Sơ đồ trực quan: [overview](docs/overview.md) (bản đồ tổng plaintext) · [architecture-diagram](docs/architecture-diagram.md) (kiến trúc + workflow + sequence).
 
