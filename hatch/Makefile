@@ -5,9 +5,10 @@ LDFLAGS := -X github.com/fioenix/overclaud/hatch/internal/cli.Version=$(VERSION)
 
 .PHONY: build install test lint vet fmt tidy clean
 
-build: ## Build the hatch binary into ./bin
+build: ## Build the hatch + hatch-mock binaries into ./bin
 	@mkdir -p bin
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/hatch
+	go build -o bin/hatch-mock ./cmd/hatch-mock
 
 install: ## Install hatch into GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/hatch

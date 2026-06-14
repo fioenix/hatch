@@ -51,6 +51,7 @@ var adapters = map[string]Adapter{
 	"gemini":      geminiAdapter{},
 	"kiro":        kiroAdapter{},
 	"antigravity": manualAdapter{kind: "antigravity", reason: "Antigravity is IDE-driven; no confirmed headless CLI"},
+	"mock":        mockAdapter{},
 	"manual":      manualAdapter{kind: "manual", reason: "manual agent"},
 	"shell":       manualAdapter{kind: "shell", reason: "shell agent has no standard headless contract"},
 }

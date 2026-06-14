@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fioenix/overclaud/hatch/internal/paths"
@@ -99,5 +100,21 @@ func TestMentionsExtract(t *testing.T) {
 	}
 	if len(want) != 0 {
 		t.Fatalf("missing mentions: %v (got %v)", want, got)
+	}
+}
+
+func TestBodyWithMarkdownHeadingNotSplit(t *testing.T) {
+	b := newBus(t)
+	body := "Đề xuất:\n## Phương án A\nchi tiết\n## Phương án B\nkhác"
+	b.Post(Message{Channel: "#design", From: "codex", To: []string{"*"}, Body: body})
+	msgs, err := b.Messages("#design")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("body with ## headings must stay 1 message, got %d", len(msgs))
+	}
+	if !strings.Contains(msgs[0].Body, "Phương án B") {
+		t.Fatalf("body truncated: %q", msgs[0].Body)
 	}
 }

@@ -29,9 +29,9 @@
     6. `tick` (cadence) + `report` + parallel `watch`.
 12. 🟢 **Versioning/migration.** registry/workflow có `version`; thêm migration nhẹ khi đổi schema.
 
-## Câu hỏi mở cho user
-- (#2/#6/#7) Chính sách **cost & secrets & redaction** — mức độ chặt tới đâu (liên quan IPO-readiness/compliance)?
-- (#1) Có muốn tao dựng **mock agent** để test end-to-end ngay trong remote không?
-- (#9) Obsidian vault: trong repo hay ngoài?
+## Quyết định đã chốt (2026-06-14)
+- **Mock agent: CÓ.** Dựng `hatch-mock` + adapter `kind: mock` để test end-to-end execute/relay/pair/convene/cost trong remote.
+- **Obsidian vault: CẢ HAI.** Hỗ trợ qua config; **mặc định in-repo** (`.hatch/kb`), cho trỏ vault ngoài.
+- **Cost/secrets: TỐI GIẢN.** Chỉ **track** cost/tokens (không hard-cap, không auto-pause, không redaction mặc định). *Ngoại lệ bất biến:* secrets vẫn **chỉ qua env**, không bao giờ trong repo (quy tắc cứng, độc lập với mức "tối giản").
 
-Ngoài các mục trên, mặt thiết kế đã đủ phủ một human squad (vận hành + giao tiếp + quản trị). Có thể bước vào implement; các 🔴 nên chốt trước khi đụng phần cost/secrets.
+Mặt thiết kế đã đủ phủ một human squad (vận hành + giao tiếp + quản trị). Bắt đầu implement theo thứ tự #11.

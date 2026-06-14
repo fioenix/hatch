@@ -11,6 +11,7 @@ Tài liệu tham chiếu cho **compiler** (ghi instruction ra đâu) và **orche
 | Kiro | `kiro` | `.kiro/steering/*.md` | `kiro-cli chat --no-interactive` |
 | Gemini CLI | `gemini` | `GEMINI.md` | `gemini -p` |
 | Antigravity | `antigravity` | `AGENTS.md` (dùng chung convention) | IDE (chưa có CLI chính thức xác nhận) |
+| (test) | `mock` | — | `hatch-mock` — agent giả để test end-to-end không cần CLI thật |
 | (generic) | `manual` | — | không spawn; tạo handoff cho người/IDE |
 
 `AGENTS.md` là convention dùng chung — **một** file phục vụ Codex + Antigravity (+ Gemini nếu khai `context.fileName`).

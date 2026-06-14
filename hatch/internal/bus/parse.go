@@ -2,7 +2,28 @@ package bus
 
 import (
 	"strings"
+	"time"
 )
+
+// isMsgHeading reports whether a line is a message heading (not arbitrary
+// Markdown in a body). Headings always start with "## <timestamp> · …", so a
+// plain "## Section" inside a message body is NOT treated as a new message.
+func isMsgHeading(ln string) bool {
+	if !strings.HasPrefix(ln, "## ") {
+		return false
+	}
+	rest := strings.TrimPrefix(ln, "## ")
+	i := strings.Index(rest, " · ")
+	if i < 0 {
+		return false
+	}
+	ts := rest[:i]
+	if _, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+		return true
+	}
+	_, err := time.Parse(time.RFC3339, ts)
+	return err == nil
+}
 
 // parseThread parses the append-only Markdown of a thread back into messages.
 // Heading form: "## <ts> · <from> → <to> · <type>[ · re:<id>] · {#<id>}".
@@ -23,7 +44,7 @@ func parseThread(channel, raw string) []Message {
 	}
 
 	for _, ln := range lines {
-		if strings.HasPrefix(ln, "## ") {
+		if isMsgHeading(ln) {
 			flush()
 			m := parseHeading(strings.TrimPrefix(ln, "## "))
 			m.Channel = channel

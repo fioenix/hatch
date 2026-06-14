@@ -64,6 +64,18 @@ func (kiroAdapter) Build(req RunRequest) Invocation {
 	return Invocation{Args: args, Headless: true, Note: "requires KIRO_API_KEY in environment"}
 }
 
+// mockAdapter drives the hatch-mock test agent: `hatch-mock --prompt …`.
+// Used to exercise the real spawn/capture path without a live agent CLI.
+type mockAdapter struct{}
+
+func (mockAdapter) Kind() string { return "mock" }
+func (mockAdapter) Build(req RunRequest) Invocation {
+	return Invocation{
+		Args:     []string{program(req.Agent, "hatch-mock"), "--prompt", req.Prompt},
+		Headless: true,
+	}
+}
+
 // manualAdapter represents agents with no headless contract: it produces a
 // handoff prompt instead of spawning anything.
 type manualAdapter struct {
