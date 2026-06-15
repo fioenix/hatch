@@ -89,10 +89,13 @@ Workflow templates (scrum/kanban/spec-first/…) **vẫn giữ**, nhưng từ "c
 - Trạng thái task suy ra từ hội thoại (post type `done`/`block`/`decision`), không lane-engine.
 - `hatch board` = stats read-only trên thread + ledger; `hatch chat` = xem hội thoại (→ pixel viz sau).
 
-### Lộ trình implement (đã chốt)
-1. **`hatch mcp`** (stdio MCP server) trên bus/KB — tool: open_thread/post/reply/read/inbox/search/threads + kb.* + whoami(`--as`). *(lõi mới)*
-2. **compile đổi mục đích**: sinh đăng ký MCP per-agent + tiêm protocol (charter+roles+workflow-prose+DoD+chat-etiquette) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro. Lead agent nhận thêm khối "orchestrator".
-3. **Claude plugin**: gói MCP + skill + slash (`/hatch`…).
-4. **board/chat read-only**: bỏ control khỏi board.
-5. **Prune runtime operator**: gỡ orchestrator-spawn/pickAgent/mux/workflow-engine/ceremonies-runtime/cost/presence/oncall (hoặc archive). Pair/mob/convene → mô tả trong protocol.
-6. Giữ: bus · KB · ledger · clean arch · compile · registry/workflow/charter/roles/DoD as SSOT.
+### Lộ trình implement (đã chốt) — TRẠNG THÁI
+
+1. ✅ **`hatch mcp --as <agent>`** (stdio MCP server) trên bus/KB — tools: whoami, chat_open, chat_post, chat_read, chat_inbox, chat_search, chat_channels, kb_add, kb_search. (`internal/mcpserver`, `internal/cli/mcp.go`). `--as` mặc định = `$HATCH_AGENT` hoặc agent kind=claude đầu tiên.
+2. ✅ **compile đổi mục đích**: tiêm protocol (charter+roles+workflow-prose+DoD+chat-etiquette) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro; khối "orchestrator" cho lead agent; đăng ký MCP per-agent (`.mcp.json`, `.kiro/settings/mcp.json` merge; snippet `.hatch/mcp/*` cho codex/agy). (`internal/compile/render.go`, `mcp.go`).
+3. ✅ **Claude plugin** (`hatch/plugin/`): `.mcp.json` + skill `hatch-chat` + slash `/hatch`; `.claude-plugin/marketplace.json` ở repo root.
+4. ✅ **board/chat read-only**: board TUI = THREADS + CHAT + ACTIVITY(ledger); chat TUI = viewer; `status` tóm tắt thread + roster. Bỏ run/claim/compose.
+5. ✅ **Prune runtime operator → archive** sau build tag `hatch_legacy` (khôi phục được, không vào binary mặc định): run/plan/watch/tick, orchestrator, workflow-engine (gate/escalate/ticket), ceremonies, ask/convene, pair/mob, presence, oncall, cost/budget, workload/perf, report.
+6. ✅ Giữ: bus · KB · ledger · clean arch · compile · registry/workflow/charter/roles/DoD as SSOT.
+
+> **Lưu ý docs.** Các doc 00–19 mô tả **thiết kế gốc (trước pivot)** — Hatch tự lái agent. Mô hình hiện hành là doc này (20). Khi đối chiếu hành vi CLI thực tế, doc 20 thắng.
