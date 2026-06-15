@@ -33,21 +33,39 @@ Dependencies point **inward**. Inner layers never import outer ones.
 |---|---|---|
 | **Domain** | `internal/model` | Pure data + invariants. Imports nothing from the project. |
 | **Use cases** | `internal/wf`, `compile`, `metrics`, `ceremony`, `orchestrator`, `docs`, `config` | Orchestrate the domain via **ports**; no direct knowledge of *how* IO happens. |
-| **Ports** | `wf.Board`, `wf.Ledger`, `gate.Runner`, `orchestrator.Adapter` | Interfaces declared at the consumer (Go idiom). |
+| **Ports** | `internal/port` (`Board`, `Ledger`, `Bus`, `OnCall`) + `gate.Runner`, `orchestrator.Adapter` | Interfaces the use-case layer depends on; adapters satisfy them. |
 | **Adapters** | `internal/store` (filesystem board/ledger/KB), `bus` (filesystem messaging), `gate.ShellRunner` (exec), `orchestrator` per-kind agent adapters + `mock`, `mux` (tmux/zellij), `presence`, `oncall`, `mdfront`, `paths` | Implement ports / wrap the outside world. |
 | **Driving adapters** | `cmd/hatch`, `internal/cli`, `internal/tui`, `cmd/hatch-mock` | The composition root: parse input, wire concrete adapters into use cases. |
 
 ## Ports in practice
 
-- **`wf.Board` / `wf.Ledger`** — the workflow engine (the core use case) operates
-  on these interfaces, not on `*store.Board`/`*store.Ledger`. `internal/store`
-  satisfies them structurally. The engine package imports **no infrastructure**
-  (`internal/wf` does not import `internal/store`).
+The ports live in **`internal/port`** (`Board`, `Ledger`, `Bus`, `OnCall`),
+plus consumer-local ports where they belong to one boundary (`gate.Runner`,
+`orchestrator.Adapter`). Infrastructure packages provide adapters that satisfy
+them, asserted at compile time (`var _ port.Board = (*store.Board)(nil)`).
+
+- **`wf.Engine`** — the workflow engine holds `port.Board/Ledger/Bus/OnCall`
+  and exposes `Move`/`Escalate` as methods. It imports **no infrastructure**
+  (only `port` + `model` + `config` + `gate`). `engineFor(ws)` in the CLI wires
+  the concrete adapters.
+- **`orchestrator.Orchestrator`** — holds `port.Ledger` + `port.Bus`; `Run`/
+  `Execute` are methods. The agent boundary itself is `orchestrator.Adapter`
+  (Claude/Codex/Gemini/Kiro + `mock` test adapter) — textbook ports & adapters.
 - **`gate.Runner`** — gate command execution sits behind a port; `ShellRunner`
   is the production adapter, fakes are used in tests (no real `sh`).
-- **`orchestrator.Adapter`** — each agent CLI (Claude/Codex/Gemini/Kiro) is an
-  adapter that builds a headless invocation; `mock` is the test/demo adapter.
-  This is textbook ports & adapters at the agent boundary.
+- **`metrics.Compute(port.Ledger)`** — reads through the ledger port.
+
+### The command/projection boundary (a deliberate Lean line)
+
+Use cases that **mutate** state or **spawn** agents go through ports
+(`wf`, `orchestrator`, `gate`). **Read-only reporting projections** that
+aggregate several sources at once (`ceremony`, plus the `report`/`cost`/`budget`
+CLI views) are composed at the root and read concrete adapters directly. Forcing
+them through ports would require leaking the messaging value types (`bus.Message`)
+into a port or relocating domain types — ceremony alone reads ledger **and**
+board **and** bus decisions **and** KB. That is abstraction for its own sake; we
+draw the line at the command path, where decoupling and testability actually pay
+off. If a second backend ever appears, the projections move behind ports then.
 
 ## Where we stay Lean (intentional non-ports)
 

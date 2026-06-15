@@ -76,7 +76,7 @@ func newPairCmd() *cobra.Command {
 				// Driver turn.
 				raw, _ := bs.Raw(thread)
 				fmt.Fprintf(out, "\n# round %d · DRIVER %s\n", r, drv.ID)
-				dOut, err := orchestrator.Execute(ws, drv, t.ID,
+				dOut, err := orch(ws).Execute(ws, drv, t.ID,
 					orchestrator.BuildPairDriverPrompt(t, thread, raw, nav.ID),
 					orchestrator.RunOptions{DryRun: dryRun, Timeout: timeout, Stdout: out})
 				if err != nil {
@@ -91,7 +91,7 @@ func newPairCmd() *cobra.Command {
 				// Navigator turn.
 				raw, _ = bs.Raw(thread)
 				fmt.Fprintf(out, "\n# round %d · NAVIGATOR %s\n", r, nav.ID)
-				nOut, err := orchestrator.Execute(ws, nav, t.ID,
+				nOut, err := orch(ws).Execute(ws, nav, t.ID,
 					orchestrator.BuildPairNavigatorPrompt(t, thread, raw, drv.ID),
 					orchestrator.RunOptions{DryRun: dryRun, Timeout: timeout, Stdout: out})
 				if err != nil {

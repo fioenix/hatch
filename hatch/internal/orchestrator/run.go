@@ -9,11 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
-	"github.com/fioenix/overclaud/hatch/internal/store"
+	"github.com/fioenix/overclaud/hatch/internal/port"
 )
+
+// Orchestrator spawns agent CLIs to work tickets. It depends only on ports
+// (Ledger for the audit trail, Bus for the agent's "read the room" catch-up);
+// the composition root injects concrete adapters.
+type Orchestrator struct {
+	Ledger port.Ledger
+	Bus    port.Bus
+}
 
 // RunOptions parameterise an orchestrated run.
 type RunOptions struct {
@@ -36,28 +43,24 @@ type RunOutcome struct {
 // teammate starting work, the agent first "reads the room": its unread inbox
 // plus a recall of conversation relevant to the ticket are prepended (unless
 // SkipComms), and the inbox is marked read after a successful run.
-func Run(ws *config.Workspace, agent model.Agent, t model.Ticket, role string, opt RunOptions) (*RunOutcome, error) {
+func (o Orchestrator) Run(ws *config.Workspace, agent model.Agent, t model.Ticket, role string, opt RunOptions) (*RunOutcome, error) {
 	prompt := BuildPrompt(t, role)
 	if !opt.SkipComms {
-		if comm := commContext(ws, agent, t.Title); comm != "" {
+		if comm := o.commContext(agent, t.Title); comm != "" {
 			prompt = comm + "\n\n" + prompt
 		}
 	}
-	out, err := Execute(ws, agent, t.ID, prompt, opt)
+	out, err := o.Execute(ws, agent, t.ID, prompt, opt)
 	if err == nil && out != nil && out.Executed && !opt.SkipComms {
-		_ = bus.New(ws.Layout).MarkRead(agent.ID)
+		_ = o.Bus.MarkRead(agent.ID)
 	}
 	return out, err
 }
 
-// commContext gathers the agent's unread inbox and a query-scoped recall of
-// recent conversation, formatted as a compact, token-bounded block.
-func commContext(ws *config.Workspace, agent model.Agent, query string) string {
-	b := bus.New(ws.Layout)
-	inbox, _ := b.Inbox(agent.ID, agent.Roles)
-	subs := b.Subscriptions(agent.ID)
-	recall, _ := b.Search(bus.SearchOpts{Query: query, Channels: subs, Limit: 5})
-
+// commContext renders the agent's unread inbox + query-scoped recall (via the
+// Bus port) into a compact, token-bounded block.
+func (o Orchestrator) commContext(agent model.Agent, query string) string {
+	inbox, recall := o.Bus.CatchUp(agent.ID, agent.Roles, query, 5)
 	if len(inbox) == 0 && len(recall) == 0 {
 		return ""
 	}
@@ -65,38 +68,23 @@ func commContext(ws *config.Workspace, agent model.Agent, query string) string {
 	s.WriteString("## Hộp thư & bối cảnh trao đổi (đọc nhanh trước khi vào việc)\n")
 	if len(inbox) > 0 {
 		s.WriteString("\n### Inbox — cần để ý (DM/@mention/broadcast)\n")
-		for _, m := range capMsgs(inbox, 10) {
-			fmt.Fprintf(&s, "- [%s] %s · %s: %s\n", m.Type, m.Channel, m.From, snippet(m.Body))
+		for _, line := range inbox {
+			s.WriteString("- " + line + "\n")
 		}
 	}
 	if len(recall) > 0 {
 		s.WriteString("\n### Liên quan tới ticket (recall, không cần trả lời hết)\n")
-		for _, m := range recall {
-			fmt.Fprintf(&s, "- %s · %s: %s\n", m.Channel, m.From, snippet(m.Body))
+		for _, line := range recall {
+			s.WriteString("- " + line + "\n")
 		}
 	}
 	s.WriteString("\nTrả lời/ghi nhận nếu @mention đích danh; còn lại chỉ là bối cảnh.")
 	return s.String()
 }
 
-func capMsgs(ms []bus.Message, n int) []bus.Message {
-	if len(ms) > n {
-		return ms[len(ms)-n:]
-	}
-	return ms
-}
-
-func snippet(s string) string {
-	s = strings.ReplaceAll(strings.TrimSpace(s), "\n", " ")
-	if len(s) > 120 {
-		return s[:120] + "…"
-	}
-	return s
-}
-
 // Execute builds and (unless DryRun) runs an agent against an arbitrary prompt,
 // recording the outcome in the ledger under ticketID ("-" for system tasks).
-func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, opt RunOptions) (*RunOutcome, error) {
+func (o Orchestrator) Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, opt RunOptions) (*RunOutcome, error) {
 	repoRoot := ws.Layout.RepoRoot()
 	req := RunRequest{
 		Agent:    agent,
@@ -105,20 +93,18 @@ func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, o
 		RepoRoot: repoRoot,
 	}
 	inv := AdapterFor(agent.Kind).Build(req)
-	t := model.Ticket{ID: ticketID}
 	out := opt.Stdout
 	if out == nil {
 		out = os.Stdout
 	}
-	lg := store.NewLedger(ws.Layout)
 
 	// No headless contract: emit a handoff for a human/IDE and stop.
 	if !inv.Headless {
 		fmt.Fprintf(out, "Agent %s (%s) has no headless mode: %s\n", agent.ID, agent.Kind, inv.Note)
 		fmt.Fprintln(out, "--- handoff prompt ---")
 		fmt.Fprintln(out, inv.StdinStr)
-		_ = lg.Append(model.Entry{
-			Agent: agent.ID, Ticket: t.ID, Action: model.ActNote,
+		_ = o.Ledger.Append(model.Entry{
+			Agent: agent.ID, Ticket: ticketID, Action: model.ActNote,
 			Why: "manual handoff prepared (" + inv.Note + ")",
 		})
 		return &RunOutcome{Invocation: inv, Executed: false}, nil
@@ -133,7 +119,6 @@ func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, o
 		return &RunOutcome{Invocation: inv, Executed: false}, nil
 	}
 
-	// Execute.
 	ctx := context.Background()
 	if opt.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -157,9 +142,9 @@ func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, o
 	cmd.Stdout = mw
 	cmd.Stderr = mw
 
-	_ = lg.Append(model.Entry{
-		Agent: agent.ID, Ticket: t.ID, Action: model.ActStart,
-		Why: fmt.Sprintf("orchestrator spawned %s for %s", agent.ID, t.ID),
+	_ = o.Ledger.Append(model.Entry{
+		Agent: agent.ID, Ticket: ticketID, Action: model.ActStart,
+		Why: fmt.Sprintf("orchestrator spawned %s for %s", agent.ID, ticketID),
 	})
 
 	runErr := cmd.Run()
@@ -173,8 +158,8 @@ func Execute(ws *config.Workspace, agent model.Agent, ticketID, prompt string, o
 		result = "failed: " + runErr.Error()
 	}
 	usd, tokens := extractUsage(buf.String(), agent.RatePerMTok)
-	_ = lg.Append(model.Entry{
-		Agent: agent.ID, Ticket: t.ID, Action: model.ActProgress,
+	_ = o.Ledger.Append(model.Entry{
+		Agent: agent.ID, Ticket: ticketID, Action: model.ActProgress,
 		Result: result, Why: fmt.Sprintf("%s finished (exit %d)", agent.ID, outcome.ExitCode),
 		CostUSD: usd, Tokens: tokens,
 	})

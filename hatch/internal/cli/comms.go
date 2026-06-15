@@ -362,7 +362,7 @@ func newAskCmd() *cobra.Command {
 			prompt := orchestrator.BuildConsultPrompt(from, roleOf(target), thread, raw, question)
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "%s → %s (thread %s)\n", from, to, thread)
-			outcome, err := orchestrator.Execute(ws, target, thread, prompt, orchestrator.RunOptions{
+			outcome, err := orch(ws).Execute(ws, target, thread, prompt, orchestrator.RunOptions{
 				DryRun: dryRun, Timeout: timeout, Stdout: out,
 			})
 			if err != nil {
@@ -444,7 +444,7 @@ func newConveneCmd() *cobra.Command {
 					raw, _ := bs.Raw(thread)
 					prompt := orchestrator.BuildMeetingPrompt(roleOf(a), thread, topic, raw, r, rounds)
 					fmt.Fprintf(out, "\n# round %d · %s (%s)\n", r, a.ID, roleOf(a))
-					outcome, err := orchestrator.Execute(ws, a, thread, prompt, orchestrator.RunOptions{
+					outcome, err := orch(ws).Execute(ws, a, thread, prompt, orchestrator.RunOptions{
 						DryRun: dryRun, Timeout: timeout, Stdout: out,
 					})
 					if err != nil {
@@ -476,7 +476,7 @@ func newConveneCmd() *cobra.Command {
 				}
 				raw, _ := bs.Raw(thread)
 				fmt.Fprintf(out, "\n# tie-break · %s (%s)\n", d.ID, roleOf(d))
-				outcome, err := orchestrator.Execute(ws, d, thread,
+				outcome, err := orch(ws).Execute(ws, d, thread,
 					orchestrator.BuildTieBreakPrompt(roleOf(d), thread, topic, raw),
 					orchestrator.RunOptions{DryRun: dryRun, Timeout: timeout, Stdout: out})
 				if err != nil {

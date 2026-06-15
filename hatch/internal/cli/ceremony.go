@@ -158,7 +158,7 @@ func newPlanningCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "→ planning with %s (%s)\n", agent.ID, agent.Kind)
-			_, err = orchestrator.Execute(ws, agent, "-", orchestrator.BuildPlanPrompt(), orchestrator.RunOptions{
+			_, err = orch(ws).Execute(ws, agent, "-", orchestrator.BuildPlanPrompt(), orchestrator.RunOptions{
 				DryRun: dryRun, Stdout: cmd.OutOrStdout(),
 			})
 			return err

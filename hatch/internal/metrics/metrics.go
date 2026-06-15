@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/fioenix/overclaud/hatch/internal/model"
-	"github.com/fioenix/overclaud/hatch/internal/store"
+	"github.com/fioenix/overclaud/hatch/internal/port"
 )
 
 // AgentStat is one agent's operational scorecard.
@@ -31,7 +31,7 @@ type Report struct {
 }
 
 // Compute scans the ledger into a Report.
-func Compute(lg *store.Ledger) (*Report, error) {
+func Compute(lg port.Ledger) (*Report, error) {
 	entries, err := lg.Entries()
 	if err != nil {
 		return nil, err

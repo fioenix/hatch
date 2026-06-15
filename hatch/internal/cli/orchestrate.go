@@ -146,7 +146,7 @@ func newRunCmd() *cobra.Command {
 				return nil
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "→ %s (%s) on %s as %s\n", agent.ID, agent.Kind, t.ID, t.Role)
-			out, err := orchestrator.Run(ws, agent, t, t.Role, orchestrator.RunOptions{
+			out, err := orch(ws).Run(ws, agent, t, t.Role, orchestrator.RunOptions{
 				DryRun: dryRun, Timeout: timeout, Stdout: cmd.OutOrStdout(), SkipComms: noCatchUp,
 			})
 			if err != nil {
@@ -185,7 +185,7 @@ func newPlanCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "→ planning with %s (%s)\n", agent.ID, agent.Kind)
-			_, err = orchestrator.Execute(ws, agent, "-", orchestrator.BuildPlanPrompt(), orchestrator.RunOptions{
+			_, err = orch(ws).Execute(ws, agent, "-", orchestrator.BuildPlanPrompt(), orchestrator.RunOptions{
 				DryRun: dryRun, Timeout: timeout, Stdout: cmd.OutOrStdout(),
 			})
 			return err
@@ -282,7 +282,7 @@ func dispatchBacklog(ws *config.Workspace, out io.Writer, opt dispatchOpts) (int
 func runJobs(ws *config.Workspace, out io.Writer, jobs []job, parallel int) {
 	if parallel <= 1 {
 		for _, j := range jobs {
-			if _, err := orchestrator.Run(ws, j.agent, j.ticket, j.ticket.Role, orchestrator.RunOptions{Stdout: out}); err != nil {
+			if _, err := orch(ws).Run(ws, j.agent, j.ticket, j.ticket.Role, orchestrator.RunOptions{Stdout: out}); err != nil {
 				fmt.Fprintf(out, "  %s run failed: %v\n", j.ticket.ID, err)
 			}
 		}
@@ -299,7 +299,7 @@ func runJobs(ws *config.Workspace, out io.Writer, jobs []job, parallel int) {
 		go func(j job) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			_, err := orchestrator.Run(ws, j.agent, j.ticket, j.ticket.Role, orchestrator.RunOptions{Stdout: io.Discard})
+			_, err := orch(ws).Run(ws, j.agent, j.ticket, j.ticket.Role, orchestrator.RunOptions{Stdout: io.Discard})
 			mu.Lock()
 			if err != nil {
 				fmt.Fprintf(out, "  %s run failed: %v\n", j.ticket.ID, err)

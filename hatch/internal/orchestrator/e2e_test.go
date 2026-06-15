@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/scaffold"
@@ -30,7 +31,8 @@ func TestExecuteRunsMockAgentEndToEnd(t *testing.T) {
 	}
 	agent := model.Agent{ID: "codex", Kind: "mock", Cmd: script}
 
-	out, err := Execute(ws, agent, "T-1", "implement the export", RunOptions{Stdout: io_discard{}})
+	o := Orchestrator{Ledger: store.NewLedger(l), Bus: bus.New(l)}
+	out, err := o.Execute(ws, agent, "T-1", "implement the export", RunOptions{Stdout: io_discard{}})
 	if err != nil {
 		t.Fatal(err)
 	}

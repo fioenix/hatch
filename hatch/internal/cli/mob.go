@@ -75,7 +75,7 @@ func newMobCmd() *cobra.Command {
 				// Driver implements.
 				raw, _ := bs.Raw(thread)
 				fmt.Fprintf(out, "\n# round %d · DRIVER %s\n", r, driver.ID)
-				dOut, err := orchestrator.Execute(ws, driver, t.ID,
+				dOut, err := orch(ws).Execute(ws, driver, t.ID,
 					orchestrator.BuildPairDriverPrompt(t, thread, raw, "mob"),
 					orchestrator.RunOptions{DryRun: dryRun, Timeout: timeout, Stdout: out})
 				if err != nil {
@@ -96,7 +96,7 @@ func newMobCmd() *cobra.Command {
 					navs++
 					raw, _ = bs.Raw(thread)
 					fmt.Fprintf(out, "\n# round %d · NAVIGATOR %s\n", r, a.ID)
-					nOut, err := orchestrator.Execute(ws, a, t.ID,
+					nOut, err := orch(ws).Execute(ws, a, t.ID,
 						orchestrator.BuildPairNavigatorPrompt(t, thread, raw, driver.ID),
 						orchestrator.RunOptions{DryRun: dryRun, Timeout: timeout, Stdout: out})
 					if err != nil {

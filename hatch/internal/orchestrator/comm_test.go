@@ -27,7 +27,7 @@ func TestCommContextGathersInboxAndRecall(t *testing.T) {
 	b.Post(bus.Message{Channel: "T-001", From: "claude-code", To: []string{"codex"}, Type: bus.TypeAsk, Body: "@codex bắt đầu Export CSV nhé"})
 
 	codex, _ := ws.Registry.AgentByID("codex")
-	got := commContext(ws, codex, "Export CSV")
+	got := Orchestrator{Bus: b}.commContext(codex, "Export CSV")
 	if got == "" {
 		t.Fatal("expected non-empty comm context")
 	}
@@ -44,7 +44,7 @@ func TestCommContextEmptyWhenNothing(t *testing.T) {
 	l, _, _ := scaffold.Init(scaffold.Options{Dir: dir, Workflow: "scrum"})
 	ws, _ := config.Load(l)
 	codex, _ := ws.Registry.AgentByID("codex")
-	if got := commContext(ws, codex, "anything"); got != "" {
+	if got := (Orchestrator{Bus: bus.New(l)}).commContext(codex, "anything"); got != "" {
 		t.Fatalf("expected empty comm context, got: %s", got)
 	}
 }

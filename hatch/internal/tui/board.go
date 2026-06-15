@@ -329,8 +329,9 @@ func (mm *m) runSelected() tea.Cmd {
 	}
 	mm.status = "đang chạy " + agent.ID + " trên " + ref.t.ID + "…"
 	ws, t, role := mm.ws, ref.t, ref.t.Role
+	o := orchestrator.Orchestrator{Ledger: store.NewLedger(ws.Layout), Bus: bus.New(ws.Layout)}
 	return func() tea.Msg {
-		_, err := orchestrator.Run(ws, agent, t, role, orchestrator.RunOptions{Stdout: io.Discard})
+		_, err := o.Run(ws, agent, t, role, orchestrator.RunOptions{Stdout: io.Discard})
 		return ranMsg{ticket: t.ID, err: err}
 	}
 }
