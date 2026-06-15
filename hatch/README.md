@@ -102,6 +102,73 @@ Sơ đồ trực quan: [overview](docs/overview.md) (bản đồ tổng plaintex
 
 Spec kỹ thuật: [registry](spec/registry.schema.md) · [ticket](spec/ticket.schema.md) · [ledger](spec/ledger.schema.md) · [workflow](spec/workflow.schema.md)
 
+## Cài đặt & Onboarding (user mới)
+
+### Yêu cầu
+- **Go 1.24+** (build `hatch`) và **git** (Hatch dùng filesystem + git làm database).
+- **Ít nhất một coding agent CLI** để chạy thật: Claude Code (`claude`), Codex (`codex`), Antigravity (`agy`), hoặc Kiro (`kiro-cli`). *Không bắt buộc đủ cả bốn* — `hatch doctor` chỉ cần ≥1 sẵn sàng. Muốn thử trước khi cài agent thì dùng demo bên dưới.
+
+### Bước 1 — Cài `hatch`
+
+```bash
+# A. Nhanh nhất: build + dựng workspace demo để xem ngay (không cần agent thật)
+git clone https://github.com/fioenix/overclaud && cd overclaud/hatch
+./scripts/onboard.sh                 # build bin/hatch + demo trong .hatch-demo/
+
+# B. Cài lên PATH
+make install                         # go install ./cmd/hatch  → $(go env GOPATH)/bin
+#   hoặc:  go install github.com/fioenix/overclaud/hatch/cmd/hatch@latest
+export PATH="$(go env GOPATH)/bin:$PATH"   # nếu chưa có
+hatch --version
+```
+
+### Bước 2 — Khởi tạo trong repo của bạn
+
+```bash
+cd /đường/dẫn/repo-của-bạn
+hatch init -w scrum          # 8 template: scrum kanban spec-first lite dual-track shape-up stage-gate incident
+#   → tạo .hatch/ (SSOT): charter.md · roles/ · registry.yaml · workflow.yaml · kb/ · ledger/
+```
+
+Sửa `.hatch/charter.md` (sản phẩm là gì) và `.hatch/registry.yaml` (agent nào giữ vai gì) cho đúng đội của bạn.
+
+### Bước 3 — Compile SSOT → surfaces + đăng ký MCP
+
+```bash
+hatch compile
+#   → CLAUDE.md · AGENTS.md · GEMINI.md · .kiro/steering/  (protocol prose cho từng agent)
+#   → .mcp.json · .kiro/settings/mcp.json (merge)  + .hatch/mcp/* (snippet codex/agy)
+hatch validate               # kiểm tra registry + workflow
+hatch doctor                 # agent CLI nào đã cài + đã đăng nhập (chỉ gọi lệnh auth, KHÔNG quét thư mục creds)
+```
+
+### Bước 4 — (Tùy chọn) Cài plugin cho Claude Code
+
+```bash
+# Dev: trỏ thẳng Claude Code vào plugin
+claude --plugin-dir /đường/dẫn/overclaud/hatch/plugin
+# hoặc qua marketplace:
+#   /plugin marketplace add fioenix/overclaud
+#   /plugin install hatch@hatch
+```
+Plugin gói sẵn MCP server + skill `hatch-chat` + slash `/hatch`. Không cài plugin cũng được — `hatch compile` đã ghi `.mcp.json` để Claude Code tự nạp MCP server.
+
+### Bước 5 — Làm việc & quan sát
+
+```bash
+# Mở coding agent NGAY TRONG workspace (vd Claude Code). Nó đọc CLAUDE.md + .mcp.json,
+# tự nối vào chat + KB chung qua MCP, rồi tự lái: mở thread mỗi task, @tag đồng đội, ghi KB.
+cd /đường/dẫn/repo-của-bạn && claude          # hoặc codex / agy / kiro-cli
+
+# Bạn (con người) quan sát read-only ở terminal khác:
+hatch board      # mission control: THREADS (task) + CHAT + ledger
+hatch chat       # viewer hội thoại kiểu Slack
+hatch status     # tóm tắt thread + roster
+hatch msg --from human:operator -c '#design' "@claude-code ưu tiên streaming"   # chèn ý kiến
+```
+
+> Trên môi trường remote/CI không cài được agent thật: `./scripts/onboard.sh` dựng demo (post một thread mẫu, in `status`/`thread`) để bạn thấy luồng mà không tốn token.
+
 ## CLI (`hatch`)
 
 Hatch là CLI viết bằng Go (single binary). Đây là **embedded harness**: agent là entrypoint, Hatch lo SSOT/chat/KB và phơi chúng qua MCP. Bộ lệnh mặc định (xem `internal/cli/root.go`):

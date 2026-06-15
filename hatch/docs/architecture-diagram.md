@@ -1,69 +1,91 @@
 # Sơ đồ kiến trúc & workflow
 
+> **Mô hình embedded-harness** (xem [doc 20](20-embedded-harness-pivot.md)). Coding agent là entrypoint và **tự lái**; Hatch là lớp nền chung (chat = comms + backlog, KB, ledger) mà agent với tới **qua MCP**. Hatch **không** spawn/điều khiển agent.
+
 Bản plaintext là chính (đọc thẳng trong terminal/diff). Khối Mermaid bên dưới cho bản render trên GitHub.
 
 ## 1. Kiến trúc hệ thống (plaintext)
 
 ```
-                         .hatch/  —  SINGLE SOURCE OF TRUTH
-        ┌──────────────────────────────────────────────────────────┐
-        │ charter.md(L0)  roles/*.md(L1)  context/(L2)               │
-        │ registry.yaml(ai giữ vai gì)    workflow.yaml(quy trình)   │
-        └───────────────┬──────────────────────────┬─────────────────┘
-                        │ hatch compile             │ workflow.yaml
-                        ▼                            ▼
-        ┌──────────────────────────────┐   ┌────────────────────────────┐
-        │ SURFACES (per-agent, sinh ra) │   │  WORKFLOW ENGINE + GATES    │
-        │ CLAUDE.md  AGENTS.md          │   │  transition · WIP · deps    │
-        │ GEMINI.md  .kiro/steering/    │   │  no-self-review · gates     │
-        │  (+ compiled/.manifest.json)  │   └──────────────┬──────────────┘
-        └───────────────┬───────────────┘                  │ authorise
-                        │ nạp L0+L1+con trỏ L2              │
-                        ▼                                   │
-        ┌──────────────────────────────┐   claim/move      │
-        │ AGENTS (mỗi con 1 process,    │◀──────────────────┘
-        │ KHÔNG chung RAM)              │
-        │ Claude · Codex · Gemini · Kiro│
-        └───┬───────────────┬───────────┘
-   spawn ▲  │ claim/move    │ tra cứu + đóng góp
-headless │  ▼               ▼
- ┌───────┴──────┐   ┌───────────────────────────────────────────────┐
- │ ORCHESTRATOR │   │           HỆ THỐNG FILE = DATABASE             │
- │ run·plan·    │   │  board/  (vị trí thư mục = trạng thái ticket)  │
- │ watch        │   │  ledger/ (append-only audit: who/what/why)     │
- └──────────────┘   │  kb/     (Knowledge Base — đọc & GHI chung)     │
-                    └───────────────────────────────────────────────┘
-                          kb/ ──promote khi chín (retro)──► context/ (SSOT)
+                       .hatch/  —  SINGLE SOURCE OF TRUTH
+      ┌────────────────────────────────────────────────────────────────┐
+      │ charter.md(L0)   roles/*.md(L1)   context/(L2)                   │
+      │ registry.yaml (ai giữ vai gì)     workflow.yaml (quy trình)      │
+      └─────────────────────────────┬──────────────────────────────────-┘
+                                    │  hatch compile
+                                    ▼
+      ┌──────────────────────────────────────┐   ┌──────────────────────────┐
+      │ SURFACES (per-agent, sinh ra)         │   │ MCP REGISTRATION (sinh ra)│
+      │ CLAUDE.md · AGENTS.md · GEMINI.md     │   │ .mcp.json (Claude)        │
+      │ .kiro/steering/                       │   │ .kiro/settings/mcp.json   │
+      │ = protocol PROSE: workflow + chat     │   │ .hatch/mcp/*  (codex, agy)│
+      │   etiquette + DoD self-check          │   └────────────┬──────────────┘
+      │   (+ khối Orchestrator cho lead)      │                │ "chạy: hatch mcp --as <id>"
+      └───────────────────┬──────────────────┘                │
+                          │ agent đọc khi khởi động           │
+                          ▼                                    ▼
+      ┌──────────────────────────────────────┐      ┌────────────────────────┐
+      │ CODING AGENTS  (ENTRYPOINT, tự lái;   │      │   HATCH MCP SERVER      │
+      │ mỗi con 1 process, KHÔNG chung RAM)   │─────►│  hatch mcp --as <id>    │
+      │ Claude Code · Codex · agy · Kiro      │ MCP  │  (stdio, 1 instance/    │
+      │  • lead = Conductor (mở thread/task)  │ tools│   agent, đúng danh tính)│
+      └──────────────────────────────────────┘      └───────────┬─────────────┘
+                                                                 │ đọc/ghi
+                ┌────────────────────────────────────────────────┘
+                ▼
+      ┌─────────────────────────────────────────────────────────────────┐
+      │                 HỆ THỐNG FILE = DATABASE  (git)                   │
+      │  bus/   = CHAT  →  comms + BACKLOG  (1 thread = 1 task)           │
+      │           channel · thread · @mention · search · inbox           │
+      │  kb/    = Knowledge Base  (đọc & GHI chung: decision/learning)    │
+      │  ledger/= append-only audit (who/what/why)                       │
+      └─────────────────────────────────────────────────────────────────┘
+                ▲ read-only
+                │
+      ┌─────────────────────────────────────┐
+      │ OBSERVE (con người xem, không lái)   │   hatch msg  ──► chèn ý kiến vào chat
+      │ hatch board · hatch chat · hatch status   (read-only views)      │
+      └─────────────────────────────────────┘
 
   Ba kho tri thức:  SSOT = config VÀO  ·  KB = tri thức VÀO+RA  ·  ledger = sự kiện RA
+  (Archived sau -tags hatch_legacy: orchestrator spawn · workflow-engine · ceremonies…)
 ```
 
-## 2. Workflow — vòng đời ticket (plaintext, template `scrum`)
+## 2. Vòng đời một task = một thread chat (quy ước, KHÔNG phải engine)
 
 ```
-   ┌─────────┐  claim   ┌─────────────┐  handoff   ┌────────┐  done   ┌──────┐
-   │ backlog │ ───────► │ in-progress │ ─────────► │ review │ ──────► │ done │
-   └─────────┘ impl/test└─────────────┘ gates:     └────────┘ reviewer└──────┘
-                  ▲           │ │        tests·lint·    │      gates: dod·
-        unblock   │     block │ │        handoff-note   │      no-self-review·
-                  │           ▼ │                       │      human-merge
-              ┌─────────┐      │ └───────────────────────┘
-              │ blocked │◀─────┘   changes-requested (review → in-progress)
-              └─────────┘
-   (lane = thư mục trong board/ · mỗi mũi tên = transition trong workflow.yaml)
+   chat_open               chat_post (tiến độ)        @tag reviewer        chat_post "done"
+   ┌────────┐   bắt tay    ┌─────────────┐  xong việc  ┌────────┐  duyệt   ┌──────┐
+   │  OPEN  │ ───────────► │ IN-PROGRESS │ ──────────► │ REVIEW │ ───────► │ DONE │
+   └────────┘  (mở task)   └─────────────┘             └────────┘          └──────┘
+                                 │  ▲                       │
+                       post      │  │ gỡ kẹt                │ changes-requested
+                      "block"    ▼  │ (post tiếp)           │ (@tag lại tác giả)
+                            ┌─────────┐ ◄───────────────────┘
+                            │ BLOCKED │
+                            └─────────┘
+   • Trạng thái SUY RA từ hội thoại (post type done/block/decision) — không có lane-engine.
+   • workflow.yaml chỉ là PROSE hướng dẫn (đã compile vào CLAUDE.md…); ai làm vai gì theo đó.
+   • Gate = Definition-of-Done agent TỰ chạy & xác nhận (make test/lint, no-self-review, human-merge).
 ```
 
-## 3. Vòng đời một ticket qua các agent (plaintext)
+## 3. Một vòng trao đổi giữa agent (qua MCP + bus)
 
 ```
-  Human ── hatch plan ─► Conductor(Claude) ── ticket new T-001 ─► board/ + ledger(note)
-                                                                       │
-  Implementer(Codex) ── hatch run --claim T-001 ─► claim (git push = lock) ─► ledger(claim)
-        │  đọc kb/ (ADR/learnings, L2)  ──►  code + test trong scope
-        └─ move → review  [gates: tests·lint·handoff] ─► ledger(handoff: đã làm/còn/cần)
-                                                                       │
-  Reviewer(Claude ≠ Codex) ── move → done [no-self-review · human-merge] ─► ledger(approved)
-                                          └─ ghi learning mới ─► kb/
+  Conductor (Claude)              Hatch bus (#export-csv)            Codex
+        │  chat_open "Export CSV   │                                  │
+        │   @codex stream giúp" ──► │  thread tạo, @codex vào "To"     │
+        │                          │ ◄── chat_inbox ─────────────────-┤ (đầu session)
+        │                          │     thấy @mention                 │
+        │                          │ ◄── chat_read #export-csv ───────-┤ hiểu nhiệm vụ
+        │                          │            code + test            │
+        │                          │ ◄── chat_post "PR #42, @claude    │
+        │ ◄── chat_inbox ──────────┤     review" (reply_to=root) ──────┘
+        │  đọc, REVIEW (≠ tác giả) │
+        │  kb_add "ADR: streaming" │  (tri thức đáng giữ → KB)
+        │  chat_post "done" ──────► │  thread khép (trạng thái: done)
+        ▼                          ▼
+  (không ai spawn ai — mọi trao đổi bất đồng bộ, agent trả lời khi đang chạy)
 ```
 
 ---
@@ -76,6 +98,7 @@ flowchart TB
   classDef surf fill:#2563eb,color:#fff,stroke:#1d4ed8;
   classDef store fill:#eef2ff,stroke:#4338ca,color:#3730a3;
   classDef eng fill:#fff,stroke:#2563eb,color:#1e3a8a,stroke-width:2px;
+  classDef obs fill:#f0fdf4,stroke:#16a34a,color:#166534;
 
   subgraph SSOT["SSOT — nguồn canonical (.hatch/)"]
     direction LR
@@ -90,48 +113,56 @@ flowchart TB
   RO --> COMPILER
   CX --> COMPILER
   REG --> COMPILER
-  COMPILER -. "manifest → stale detect" .-> MAN[("compiled/.manifest.json")]:::store
-  COMPILER --> S1["CLAUDE.md"]:::surf
-  COMPILER --> S2["AGENTS.md"]:::surf
-  COMPILER --> S3["GEMINI.md"]:::surf
-  COMPILER --> S4[".kiro/steering/"]:::surf
-  subgraph AGENTS["Agents — mỗi con 1 process"]
+  WF --> COMPILER
+  COMPILER --> SURF["Surfaces per-agent<br/>CLAUDE.md · AGENTS.md · GEMINI.md · .kiro<br/>(protocol prose + DoD + orchestrator)"]:::surf
+  COMPILER --> MCPREG["MCP registration<br/>.mcp.json · .kiro/settings/mcp.json · .hatch/mcp/*"]:::surf
+
+  subgraph AGENTS["Coding agents — ENTRYPOINT, tự lái (1 process/con)"]
     direction LR
-    A1["Claude"]
+    A1["Claude Code<br/>(lead = Conductor)"]
     A2["Codex"]
-    A3["Gemini"]
+    A3["agy"]
     A4["Kiro"]
   end
-  S1 --> A1
-  S2 --> A2
-  S3 --> A3
-  S4 --> A4
-  ORCH{{"orchestrator<br/>run · plan · watch"}}:::eng
-  ORCH == "spawn headless" ==> AGENTS
-  ENGINE{{"workflow engine + gates"}}:::eng
-  WF --> ENGINE
-  subgraph STORE["Hệ thống file = database"]
+  SURF --> AGENTS
+  MCPREG -. "hatch mcp --as id" .-> MCP
+
+  MCP{{"Hatch MCP server<br/>(stdio, per agent)"}}:::eng
+  AGENTS == "MCP tools" ==> MCP
+
+  subgraph STORE["Hệ thống file = database (git)"]
     direction LR
-    BOARD[("board/")]:::store
-    LEDGER[("ledger/")]:::store
+    BUS[("bus/ — CHAT = comms + backlog<br/>thread = task")]:::store
     KB[("kb/ — Knowledge Base")]:::store
+    LEDGER[("ledger/ — audit")]:::store
   end
-  AGENTS == "claim / move" ==> ENGINE
-  ENGINE --> BOARD
-  ENGINE --> LEDGER
-  AGENTS -- "tra cứu + đóng góp" --> KB
-  KB -. "promote (retro)" .-> CX
+  MCP --> BUS
+  MCP --> KB
+  MCP --> LEDGER
+
+  subgraph OBS["Observe (read-only, con người)"]
+    direction LR
+    O1["hatch board"]:::obs
+    O2["hatch chat"]:::obs
+    O3["hatch status"]:::obs
+  end
+  BUS --> OBS
+  LEDGER --> OBS
 ```
 
 ```mermaid
 stateDiagram-v2
   direction LR
-  [*] --> backlog
-  backlog --> in_progress: claim · impl/test (deps done)
-  in_progress --> review: handoff — tests/lint/handoff-note
-  review --> done: done · reviewer — dod/no-self-review/human-merge
+  [*] --> open: chat_open (mở task)
+  open --> in_progress: bắt tay (chat_post)
+  in_progress --> review: xong + @tag reviewer
+  review --> done: reviewer duyệt + post "done"
   review --> in_progress: changes-requested
-  in_progress --> blocked: block
-  blocked --> in_progress: unblock
+  in_progress --> blocked: post "block"
+  blocked --> in_progress: gỡ kẹt
   done --> [*]
+  note right of review
+    Trạng thái suy ra từ hội thoại.
+    Gate = DoD agent tự kiểm.
+  end note
 ```
