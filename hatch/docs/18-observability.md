@@ -11,7 +11,7 @@ Hai cái này cần cơ chế khác nhau → có **hai tầng quan sát**, khôn
 
 ## Tầng A — TUI một-process (mặc định, không phụ thuộc)
 
-Hatch tự dựng "mission control" bằng Bubble Tea/lipgloss (như k9s/lazygit): **một process, nhiều pane nội bộ**:
+Hatch tự dựng "mission control" bằng Bubble Tea/lipgloss (như k9s/lazygit): **một process, 4 pane nội bộ** (`hatch board`): BOARD + LIVE (transcript) + ACTIVITY (ledger) + CHAT (bus, soạn được). Phím: `tab` đổi pane, `↑/↓` di/scroll, `f` follow ticket, `r` chạy run, `c` đổi channel, `i` soạn chat, `q` thoát.
 ```
 ┌ board ───────────┬ active runs ─────────────┐
 │ backlog 3        │ T-101 codex   ▮▮▮ streaming│

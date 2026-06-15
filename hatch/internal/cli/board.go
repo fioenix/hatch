@@ -9,7 +9,7 @@ import (
 func newBoardCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "board",
-		Short: "Interactive TUI board dashboard",
+		Short: "Unified mission-control TUI (board + live output + ledger + chat)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
 			if err != nil {

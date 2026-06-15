@@ -1,6 +1,7 @@
-// Package tui renders an interactive mission-control dashboard with Bubble Tea:
-// the board, live agent output (run transcripts) and an activity feed in one
-// multi-pane view, plus the ability to launch a run on the selected ticket.
+// Package tui renders interactive dashboards with Bubble Tea. `hatch board` is
+// the unified mission control: BOARD + LIVE agent output + ACTIVITY (ledger) +
+// CHAT (the communication bus), in one process. `hatch chat` (chat.go) is a
+// focused stand-alone chat view sharing the same widgets.
 package tui
 
 import (
@@ -12,10 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/orchestrator"
@@ -29,6 +32,8 @@ const (
 	paneBoard pane = iota
 	paneLive
 	paneActivity
+	paneChat
+	numPanes
 )
 
 var (
@@ -46,18 +51,28 @@ type tref struct {
 }
 
 type m struct {
-	ws       *config.Workspace
-	board    *store.Board
-	ledger   *store.Ledger
+	ws     *config.Workspace
+	board  *store.Board
+	ledger *store.Ledger
+	bus    *bus.Bus
+
 	refs     []tref
 	sel      int
 	focus    pane
 	live     viewport.Model
 	activity viewport.Model
+	chat     viewport.Model
 	liveTick string
-	w, h     int
-	status   string
-	ready    bool
+
+	channels  []string
+	chatSel   int
+	input     textinput.Model
+	composing bool
+	chatAs    string
+
+	w, h   int
+	status string
+	ready  bool
 }
 
 type tickMsg time.Time
@@ -70,9 +85,15 @@ func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// New returns a Bubble Tea program for the mission-control dashboard.
+// New returns the unified mission-control dashboard program.
 func New(ws *config.Workspace) *tea.Program {
-	mm := m{ws: ws, board: store.NewBoard(ws.Layout), ledger: store.NewLedger(ws.Layout)}
+	ti := textinput.New()
+	ti.Placeholder = "message (@mention để tag) — Enter gửi, Esc huỷ"
+	ti.CharLimit = 2000
+	mm := m{
+		ws: ws, board: store.NewBoard(ws.Layout), ledger: store.NewLedger(ws.Layout),
+		bus: bus.New(ws.Layout), input: ti, chatAs: "human:operator",
+	}
 	return tea.NewProgram(&mm, tea.WithAltScreen())
 }
 
@@ -93,8 +114,22 @@ func (mm *m) reload() {
 	if mm.liveTick == "" && len(refs) > 0 {
 		mm.liveTick = refs[mm.sel].t.ID
 	}
+	chs, _ := mm.bus.Channels()
+	sort.Strings(chs)
+	mm.channels = chs
+	if mm.chatSel >= len(chs) {
+		mm.chatSel = max(0, len(chs)-1)
+	}
 	mm.live.SetContent(mm.transcript(mm.liveTick))
 	mm.activity.SetContent(mm.activityFeed())
+	mm.chat.SetContent(mm.chatFeed())
+}
+
+func (mm *m) curChannel() string {
+	if mm.chatSel < len(mm.channels) {
+		return mm.channels[mm.chatSel]
+	}
+	return ""
 }
 
 func (mm *m) transcript(ticket string) string {
@@ -133,12 +168,40 @@ func (mm *m) activityFeed() string {
 	return strings.Join(lines, "\n")
 }
 
+func (mm *m) chatFeed() string {
+	ch := mm.curChannel()
+	if ch == "" {
+		return dim.Render("(chưa có channel — nhấn i để gửi, c để đổi channel)")
+	}
+	msgs, err := mm.bus.Messages(ch)
+	if err != nil || len(msgs) == 0 {
+		return dim.Render("(channel trống)")
+	}
+	var b strings.Builder
+	for _, msg := range msgs {
+		ts := msg.TS
+		if t, e := time.Parse(time.RFC3339Nano, msg.TS); e == nil {
+			ts = t.Format("15:04")
+		}
+		head := fmt.Sprintf("%s %s", dim.Render(ts), selSty.Render(msg.From))
+		if msg.Type != bus.TypeMsg {
+			head += " " + laneSty.Render("["+msg.Type+"]")
+		}
+		b.WriteString(head + "\n  " + strings.ReplaceAll(msg.Body, "\n", "\n  ") + "\n")
+	}
+	return b.String()
+}
+
 func (mm *m) layout() {
-	leftW := mm.w/2 - 2
-	rightW := mm.w - leftW - 4
-	vpH := (mm.h - 6) / 2
+	rightW := mm.w - mm.w/2 - 4
+	vpH := (mm.h - 9) / 3
+	if vpH < 3 {
+		vpH = 3
+	}
 	mm.live = viewport.New(rightW, vpH)
 	mm.activity = viewport.New(rightW, vpH)
+	mm.chat = viewport.New(rightW, vpH)
+	mm.input.Width = rightW - 4
 	mm.ready = true
 }
 
@@ -149,8 +212,9 @@ func (mm *m) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		mm.layout()
 		mm.reload()
 	case tickMsg:
-		if mm.ready {
+		if mm.ready && !mm.composing {
 			mm.reload()
+			mm.chat.GotoBottom()
 		}
 		return mm, tick()
 	case ranMsg:
@@ -160,26 +224,27 @@ func (mm *m) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			mm.status = "run " + msg.ticket + " xong"
 		}
 	case tea.KeyMsg:
+		if mm.composing {
+			return mm.updateCompose(msg)
+		}
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
 			return mm, tea.Quit
 		case "tab":
-			mm.focus = (mm.focus + 1) % 3
+			mm.focus = (mm.focus + 1) % numPanes
 		case "up", "k":
-			if mm.focus == paneBoard && mm.sel > 0 {
-				mm.sel--
-			} else if mm.focus == paneLive {
-				mm.live.LineUp(1)
-			} else if mm.focus == paneActivity {
-				mm.activity.LineUp(1)
-			}
+			mm.scrollUp()
 		case "down", "j":
-			if mm.focus == paneBoard && mm.sel < len(mm.refs)-1 {
-				mm.sel++
-			} else if mm.focus == paneLive {
-				mm.live.LineDown(1)
-			} else if mm.focus == paneActivity {
-				mm.activity.LineDown(1)
+			mm.scrollDown()
+		case "c":
+			if mm.focus == paneChat && len(mm.channels) > 0 {
+				mm.chatSel = (mm.chatSel + 1) % len(mm.channels)
+				mm.chat.SetContent(mm.chatFeed())
+			}
+		case "i":
+			if mm.focus == paneChat && mm.curChannel() != "" {
+				mm.composing = true
+				mm.input.Focus()
 			}
 		case "f":
 			if mm.focus == paneBoard && mm.sel < len(mm.refs) {
@@ -197,7 +262,63 @@ func (mm *m) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return mm, nil
 }
 
-// runSelected launches an agent on the selected ticket in the background.
+func (mm *m) updateCompose(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		mm.composing = false
+		mm.input.Blur()
+		mm.input.SetValue("")
+	case "enter":
+		if v := strings.TrimSpace(mm.input.Value()); v != "" && mm.curChannel() != "" {
+			if _, err := mm.bus.Post(bus.Message{Channel: mm.curChannel(), From: mm.chatAs, To: []string{mm.curChannel()}, Body: v}); err != nil {
+				mm.status = "lỗi gửi: " + err.Error()
+			} else {
+				mm.status = "đã gửi tới " + mm.curChannel()
+			}
+		}
+		mm.composing = false
+		mm.input.Blur()
+		mm.input.SetValue("")
+		mm.chat.SetContent(mm.chatFeed())
+		mm.chat.GotoBottom()
+	default:
+		var cmd tea.Cmd
+		mm.input, cmd = mm.input.Update(msg)
+		return mm, cmd
+	}
+	return mm, nil
+}
+
+func (mm *m) scrollUp() {
+	switch mm.focus {
+	case paneBoard:
+		if mm.sel > 0 {
+			mm.sel--
+		}
+	case paneLive:
+		mm.live.LineUp(1)
+	case paneActivity:
+		mm.activity.LineUp(1)
+	case paneChat:
+		mm.chat.LineUp(1)
+	}
+}
+
+func (mm *m) scrollDown() {
+	switch mm.focus {
+	case paneBoard:
+		if mm.sel < len(mm.refs)-1 {
+			mm.sel++
+		}
+	case paneLive:
+		mm.live.LineDown(1)
+	case paneActivity:
+		mm.activity.LineDown(1)
+	case paneChat:
+		mm.chat.LineDown(1)
+	}
+}
+
 func (mm *m) runSelected() tea.Cmd {
 	ref := mm.refs[mm.sel]
 	mm.liveTick = ref.t.ID
@@ -233,21 +354,26 @@ func (mm *m) View() string {
 			curLane = r.lane
 			bd.WriteString(laneSty.Render(curLane) + "\n")
 		}
-		line := fmt.Sprintf("  %-7s %-11s %s", r.t.ID, r.t.Assignee, trunc(r.t.Title, 22))
+		line := fmt.Sprintf("  %-7s %-11s %s", r.t.ID, r.t.Assignee, trunc(r.t.Title, 20))
 		if i == mm.sel {
 			line = selSty.Render("▸ " + strings.TrimLeft(line, " "))
 		}
 		bd.WriteString(line + "\n")
 	}
-	boardBox := paneBox(mm.focus == paneBoard, "BOARD", bd.String(), mm.w/2-2, mm.h-6)
+	boardBox := paneBox(mm.focus == paneBoard, "BOARD", bd.String(), mm.w/2-2, mm.h-4)
 
-	mm.live.SetContent(mm.transcript(mm.liveTick))
 	liveBox := paneBox(mm.focus == paneLive, "LIVE · "+mm.liveTick, mm.live.View(), 0, 0)
 	actBox := paneBox(mm.focus == paneActivity, "ACTIVITY (ledger)", mm.activity.View(), 0, 0)
-	right := lipgloss.JoinVertical(lipgloss.Left, liveBox, actBox)
+	chatTitle := "CHAT · #" + mm.curChannel()
+	chatBody := mm.chat.View()
+	if mm.composing {
+		chatBody += "\n" + mm.input.View()
+	}
+	chatBox := paneBox(mm.focus == paneChat, chatTitle, chatBody, 0, 0)
+	right := lipgloss.JoinVertical(lipgloss.Left, liveBox, actBox, chatBox)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, boardBox, right)
 
-	foot := dim.Render("tab pane · ↑/↓ move·scroll · f follow · r run · g refresh · q quit")
+	foot := dim.Render("tab pane · ↑/↓ move·scroll · f follow · r run · c channel · i chat · g refresh · q quit")
 	if mm.status != "" {
 		foot = selSty.Render(mm.status) + "   " + foot
 	}
@@ -268,7 +394,6 @@ func paneBox(focus bool, title, content string, w, h int) string {
 	return style.Render(laneSty.Render(title) + "\n" + content)
 }
 
-// pick chooses an available agent for a role (presence-aware, first match).
 func pick(ws *config.Workspace, role string) (model.Agent, bool) {
 	pres := presence.Load(ws.Layout)
 	for _, a := range ws.Registry.AgentsForRole(role) {

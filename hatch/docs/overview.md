@@ -32,7 +32,7 @@ Legend: **✓** đã implement (code + test) · **◇** mới thiết kế (docs
 │  COLLAB        ✓  pairing(driver/navigator) · mob(driver xoay vòng)                │
 │  ỨNG CỨU       ✓  escalation · on-call rotation · incident workflow               │
 │  CAPACITY      ✓  presence(available/busy/paused/offline) → phân việc theo tải     │
-│  OBSERVE       ✓  transcript + hatch logs -f · TUI board(board+live+feed) · chat   │
+│  OBSERVE       ✓  transcript + hatch logs -f · TUI board (4 pane: board+live+ledger+chat)│
 │                ✓  --mux=tmux|zellij (mỗi run một pane thật)                         │
 │  DOCS/KB       ✓  doc templates (new/lint) · Obsidian KB (link/backlinks/graph)    │
 │  ── lớp QUẢN TRỊ (Founder/CEO/CTO) ──────────────────────────────────────────────  │
