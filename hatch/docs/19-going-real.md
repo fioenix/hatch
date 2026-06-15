@@ -2,11 +2,11 @@
 
 Hướng dẫn chuyển một workspace từ **mock agent** (demo) sang **agent CLI thật**.
 
-## 1. Cài agent CLI
+## 1. Cài agent CLI (không bắt buộc hết — chỉ cần ≥1)
 Cài cái nào bạn dùng (xem [10-agent-adapters](10-agent-adapters.md)):
 - **Claude Code** — `claude` ([code.claude.com](https://code.claude.com))
 - **Codex** — `codex` ([github.com/openai/codex](https://github.com/openai/codex))
-- **Gemini CLI** — `gemini` ([github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli))
+- **Antigravity CLI** — `agy` (kế nhiệm Gemini CLI; `agy` ([antigravity.google](https://antigravity.google)))
 - **Kiro** — `kiro-cli` ([kiro.dev](https://kiro.dev))
 
 ## 2. Đặt `kind` thật trong registry
@@ -26,13 +26,15 @@ agents:
     rate_per_mtok: 15
 ```
 
-## 3. Cấp credential qua ENV (không bao giờ trong repo)
+## 3. Đăng nhập (OAuth) hoặc cấp env key
+Ưu tiên **login OAuth** của từng CLI (không cần key trong repo/env):
 ```bash
-export ANTHROPIC_API_KEY=...   # claude
-export OPENAI_API_KEY=...       # codex
-export GEMINI_API_KEY=...       # gemini
-export KIRO_API_KEY=...         # kiro (headless)
+claude            # /login (subscription) — hoặc env ANTHROPIC_API_KEY
+codex login       # ChatGPT OAuth — hoặc env OPENAI_API_KEY
+agy               # lần đầu: chọn Google OAuth (browser/device-code) — hoặc env ANTIGRAVITY_API_KEY
+kiro-cli          # login — headless cần env KIRO_API_KEY
 ```
+Token do từng CLI tự quản (OS keyring / file riêng) — Hatch **không** đụng vào. Nếu tự động hoá thì cấp env key tương ứng (không bao giờ commit vào repo).
 
 ## 4. Kiểm tra sẵn sàng
 ```bash

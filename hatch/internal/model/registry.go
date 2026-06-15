@@ -12,6 +12,10 @@ type Agent struct {
 	WIP      int      `yaml:"wip,omitempty"`      // max concurrent tickets (0 = unlimited)
 	Sandbox  string   `yaml:"sandbox,omitempty"`  // capability hint for orchestrator (e.g. workspace-write)
 	Approval string   `yaml:"approval,omitempty"` // approval/permission mode hint
+	// AuthCheck is a non-mutating command (argv) that exits 0 when the agent CLI
+	// is authenticated, e.g. "login status". `hatch doctor` runs it instead of
+	// inspecting credential files. Overrides the per-kind default.
+	AuthCheck []string `yaml:"auth_check,omitempty"`
 
 	BudgetUSD   float64 `yaml:"budget_usd,omitempty"`    // "salary": cost ceiling per cycle (tracked, not enforced)
 	RatePerMTok float64 `yaml:"rate_per_mtok,omitempty"` // USD per 1M tokens, for cost estimate when provider gives only tokens

@@ -30,7 +30,7 @@ func surfaceForKind(kind string) (Surface, bool) {
 		return SurfaceClaude, true
 	case "codex", "antigravity":
 		return SurfaceAgents, true
-	case "gemini":
+	case "gemini", "agy":
 		return SurfaceGemini, true
 	case "kiro":
 		return SurfaceKiro, true

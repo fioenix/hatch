@@ -9,12 +9,17 @@ Tài liệu tham chiếu cho **compiler** (ghi instruction ra đâu) và **orche
 | Claude Code | `claude` | `CLAUDE.md` (+ `.claude/agents/*.md`) | `claude -p` |
 | Codex | `codex` | `AGENTS.md` | `codex exec` |
 | Kiro | `kiro` | `.kiro/steering/*.md` | `kiro-cli chat --no-interactive` |
-| Gemini CLI | `gemini` | `GEMINI.md` | `gemini -p` |
-| Antigravity | `antigravity` | `AGENTS.md` (dùng chung convention) | IDE (chưa có CLI chính thức xác nhận) |
+| **Antigravity CLI** | `agy` | `GEMINI.md` (cũng đọc `AGENTS.md`) | `agy -p … --output-format json` |
+| Gemini CLI *(legacy)* | `gemini` | `GEMINI.md` | `gemini -p` |
+| Antigravity IDE | `antigravity` | `AGENTS.md` | IDE / handoff (không headless CLI riêng) |
 | (test) | `mock` | — | `hatch-mock` — agent giả để test end-to-end không cần CLI thật |
 | (generic) | `manual` | — | không spawn; tạo handoff cho người/IDE |
 
-`AGENTS.md` là convention dùng chung — **một** file phục vụ Codex + Antigravity (+ Gemini nếu khai `context.fileName`).
+> **`agy`** (Antigravity CLI) là **kế nhiệm Gemini CLI** của Google — mặc định mới của Hatch. `kind: gemini` vẫn dùng được cho ai còn xài Gemini CLI cũ. Auth qua **OAuth/OS-keyring** (browser, hoặc device-code khi headless) hoặc env `ANTIGRAVITY_API_KEY`; token ở `~/.gemini/antigravity-cli/`. Cờ: `-p`, `--output-format json`, `-m`, `--approval-mode`/`--yolo`, `--sandbox`.
+
+`AGENTS.md` là convention dùng chung — **một** file phục vụ Codex + Antigravity.
+
+> **Agent CLI không bắt buộc.** Cài cái nào dùng cái nấy, chỉ cần **≥1**. `hatch doctor` kiểm auth bằng cách **gọi chính lệnh của CLI** (vd `codex login status`) hoặc đọc env key — **không scan thư mục credential** (an toàn). CLI nào chưa có lệnh status non-interactive thì khai `auth_check` trong registry, hoặc doctor để "?".
 
 ---
 

@@ -39,8 +39,8 @@ agents:
     kind: kiro
     roles: [architect, implementer]
     wip: 1
-  - id: gemini
-    kind: gemini
+  - id: agy
+    kind: agy           # Google Antigravity CLI (kế nhiệm gemini); dùng `kind: gemini` nếu vẫn xài Gemini CLI cũ
     roles: [implementer, tech-writer]
     wip: 1
 
