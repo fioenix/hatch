@@ -106,9 +106,12 @@ func agySnippet(agentID string) string {
 		"mcpServers": map[string]any{mcpServerName: serverEntry(agentID)},
 	}
 	body, _ := json.MarshalIndent(entry, "", "  ")
-	return fmt.Sprintf("# Hatch MCP cho agy (Antigravity)\n\n"+
-		"agy đọc cấu hình MCP trong home (vd `~/.gemini/settings.json`), ngoài repo — "+
-		"Hatch không tự sửa. Trộn khối `mcpServers` dưới đây vào file đó:\n\n"+
+	return fmt.Sprintf("# Hatch MCP cho agy (Antigravity CLI — KHÁC Gemini CLI legacy)\n\n"+
+		"Antigravity CLI nạp MCP server CHỈ từ file HOME-level riêng (không inline trong settings):\n"+
+		"  • hiện hành: `~/.gemini/config/mcp_config.json`\n"+
+		"  • cũ: `~/.gemini/antigravity-cli/mcp_config.json` (nay là symlink tới file trên)\n"+
+		"Project-local `.antigravitycli/mcp_config.json` bị phát hiện nhưng BỎ QUA (issue #60).\n"+
+		"Cách nhanh: `hatch init --client agy`. Hoặc trộn khối `mcpServers` dưới đây vào file HOME:\n\n"+
 		"```json\n%s\n```\n", string(body))
 }
 

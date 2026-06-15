@@ -149,7 +149,7 @@ Thay vì dán config thủ công, để Hatch set up đúng cho từng client. L
 ```bash
 hatch init --client cc       # Claude Code: ghi project .mcp.json + in hướng dẫn /plugin install
 hatch init --client codex    # Codex: gọi `codex mcp add hatch -- hatch mcp --as codex` (→ ~/.codex/config.toml)
-hatch init --client agy      # Antigravity: merge ~/.gemini/config/mcp_config.json (+ .agents/mcp_config.json)
+hatch init --client agy      # Antigravity CLI: merge ~/.gemini/config/mcp_config.json (HOME-level, runtime mới)
 hatch init --client kiro     # Kiro: ghi .kiro/settings/mcp.json
 hatch init --client cc,codex # nhiều client một lần
 ```
@@ -161,7 +161,7 @@ hatch init --client cc,codex # nhiều client một lần
   ```
   (hoặc dev: `claude --plugin-dir /đường/dẫn/overclaud/hatch/plugin`)
 - **`codex`** — cần `codex` trên PATH để tự ghi; nếu không, lệnh in sẵn khối để dán vào `~/.codex/config.toml`.
-- **`agy`** — Antigravity CLI nạp MCP từ file ở `$HOME`; `--client agy` chỉ ghi khi bạn chủ động chạy nó. Merge giữ nguyên server khác.
+- **`agy`** — Antigravity CLI (khác Gemini CLI legacy) nạp MCP **chỉ từ file HOME-level riêng**: `~/.gemini/config/mcp_config.json` (cũ: `~/.gemini/antigravity-cli/mcp_config.json`, nay symlink). Project-local `.antigravitycli/mcp_config.json` bị bỏ qua ([issue #60](https://github.com/google-antigravity/antigravity-cli/issues/60)). `--client agy` chỉ ghi khi bạn chủ động chạy; merge giữ nguyên server khác.
 - Mọi client đều dùng đúng danh tính `--as <agent-id>` lấy từ `registry.yaml`, nên orchestrator có thể là Claude, Codex hay agy tùy bạn gán vai `conductor`.
 
 ### Bước 5 — Làm việc & quan sát

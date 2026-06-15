@@ -94,7 +94,12 @@ func setupClient(cmd *cobra.Command, ws *config.Workspace, repoRoot, alias strin
 		}
 
 	case "agy":
-		// Antigravity CLI loads MCP from a HOME-level JSON (mcpServers shape).
+		// Antigravity CLI (NOT legacy Gemini CLI) loads MCP servers ONLY from a
+		// HOME-level mcp_config.json — a separate file, not inline in settings.
+		// Current path is ~/.gemini/config/mcp_config.json; older installs use
+		// ~/.gemini/antigravity-cli/mcp_config.json (now a symlink to it).
+		// Project-local .antigravitycli/mcp_config.json is detected but IGNORED
+		// (google-antigravity/antigravity-cli#60), so we don't write one.
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("agy: cannot resolve home dir: %w", err)
@@ -103,13 +108,18 @@ func setupClient(cmd *cobra.Command, ws *config.Workspace, repoRoot, alias strin
 		if err := writeServerJSON(homeCfg, id, dryRun); err != nil {
 			return err
 		}
-		say(out, dryRun, "agy: home MCP config %s → server 'hatch' (--as %s)", homeCfg, id)
-		// Workspace-scope copy too (some agy versions read .agents/mcp_config.json).
-		wsCfg := filepath.Join(repoRoot, ".agents", "mcp_config.json")
-		if err := writeServerJSON(wsCfg, id, dryRun); err != nil {
-			return err
+		say(out, dryRun, "agy: %s → server 'hatch' (--as %s)", homeCfg, id)
+		// If a legacy antigravity-cli dir exists and isn't just a symlink to the
+		// config dir, merge there too so pre-migration installs pick it up.
+		legacyDir := filepath.Join(home, ".gemini", "antigravity-cli")
+		if fi, err := os.Lstat(legacyDir); err == nil && fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
+			legacyCfg := filepath.Join(legacyDir, "mcp_config.json")
+			if err := writeServerJSON(legacyCfg, id, dryRun); err != nil {
+				return err
+			}
+			say(out, dryRun, "agy: %s (legacy) → server 'hatch'", legacyCfg)
 		}
-		say(out, dryRun, "agy: workspace MCP config %s (dự phòng)", rel(repoRoot, wsCfg))
+		fmt.Fprintf(out, "  (agy chỉ nạp MCP ở HOME-level; project-local .antigravitycli/mcp_config.json bị bỏ qua — issue #60)\n")
 	}
 	return nil
 }
