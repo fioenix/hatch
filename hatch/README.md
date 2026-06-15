@@ -142,16 +142,27 @@ hatch validate               # kiểm tra registry + workflow
 hatch doctor                 # agent CLI nào đã cài + đã đăng nhập (chỉ gọi lệnh auth, KHÔNG quét thư mục creds)
 ```
 
-### Bước 4 — (Tùy chọn) Cài plugin cho Claude Code
+### Bước 4 — Nối client vào MCP bằng một lệnh: `hatch init --client`
+
+Thay vì dán config thủ công, để Hatch set up đúng cho từng client. Lệnh này compile rồi ghi đăng ký MCP vào đúng nơi client đó đọc (chạy được cả khi `.hatch` đã có; thêm `--dry-run` để xem trước):
 
 ```bash
-# Dev: trỏ thẳng Claude Code vào plugin
-claude --plugin-dir /đường/dẫn/overclaud/hatch/plugin
-# hoặc qua marketplace:
-#   /plugin marketplace add fioenix/overclaud
-#   /plugin install hatch@hatch
+hatch init --client cc       # Claude Code: ghi project .mcp.json + in hướng dẫn /plugin install
+hatch init --client codex    # Codex: gọi `codex mcp add hatch -- hatch mcp --as codex` (→ ~/.codex/config.toml)
+hatch init --client agy      # Antigravity: merge ~/.gemini/config/mcp_config.json (+ .agents/mcp_config.json)
+hatch init --client kiro     # Kiro: ghi .kiro/settings/mcp.json
+hatch init --client cc,codex # nhiều client một lần
 ```
-Plugin gói sẵn MCP server + skill `hatch-chat` + slash `/hatch`. Không cài plugin cũng được — `hatch compile` đã ghi `.mcp.json` để Claude Code tự nạp MCP server.
+
+- **`cc`** — ngoài `.mcp.json` (project-scope, đủ để chạy), gói **plugin** Claude Code (MCP + skill `hatch-chat` + slash `/hatch`) cài qua marketplace:
+  ```
+  /plugin marketplace add fioenix/overclaud
+  /plugin install hatch@hatch
+  ```
+  (hoặc dev: `claude --plugin-dir /đường/dẫn/overclaud/hatch/plugin`)
+- **`codex`** — cần `codex` trên PATH để tự ghi; nếu không, lệnh in sẵn khối để dán vào `~/.codex/config.toml`.
+- **`agy`** — Antigravity CLI nạp MCP từ file ở `$HOME`; `--client agy` chỉ ghi khi bạn chủ động chạy nó. Merge giữ nguyên server khác.
+- Mọi client đều dùng đúng danh tính `--as <agent-id>` lấy từ `registry.yaml`, nên orchestrator có thể là Claude, Codex hay agy tùy bạn gán vai `conductor`.
 
 ### Bước 5 — Làm việc & quan sát
 
@@ -177,6 +188,7 @@ Hatch là CLI viết bằng Go (single binary). Đây là **embedded harness**: 
 ./scripts/onboard.sh         # build + dựng demo workspace để thử ngay — hoặc `make onboard`
 make build                   # → bin/hatch
 bin/hatch init -w scrum       # 8 template: scrum kanban spec-first lite dual-track shape-up stage-gate incident
+bin/hatch init --client codex # set up MCP cho 1 client: cc|codex|agy|kiro (compile + ghi config đúng chỗ; --dry-run xem trước)
 bin/hatch compile             # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering
                               #   (protocol prose: workflow + chat etiquette + DoD self-check + khối orchestrator
                               #    cho lead) + đăng ký MCP per-agent (.mcp.json · .kiro/settings/mcp.json merge;
