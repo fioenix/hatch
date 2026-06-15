@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/fioenix/overclaud/hatch/internal/paths"
 )
 
 // WorktreeDir is where per-ticket git worktrees are created (under .hatch).
@@ -13,9 +15,10 @@ const WorktreeDir = ".hatch/.worktrees"
 // AddWorktree creates an isolated git worktree for a ticket on the given branch,
 // creating the branch if needed. Returns the worktree path.
 func AddWorktree(repoRoot, ticketID, branch string) (string, error) {
-	path := filepath.Join(repoRoot, WorktreeDir, ticketID)
+	safe := paths.SafeSegment(ticketID) // defense-in-depth against path traversal
+	path := filepath.Join(repoRoot, WorktreeDir, safe)
 	if branch == "" {
-		branch = "hatch/" + ticketID
+		branch = "hatch/" + safe
 	}
 	// Create the branch if it does not exist, then add the worktree.
 	args := []string{"worktree", "add"}
