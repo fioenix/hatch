@@ -15,11 +15,23 @@ Tài liệu tham chiếu cho **compiler** (ghi instruction ra đâu) và **orche
 | (test) | `mock` | — | `hatch-mock` — agent giả để test end-to-end không cần CLI thật |
 | (generic) | `manual` | — | không spawn; tạo handoff cho người/IDE |
 
-> **`agy`** (Antigravity CLI) là **kế nhiệm Gemini CLI** của Google — mặc định mới của Hatch. `kind: gemini` vẫn dùng được cho ai còn xài Gemini CLI cũ. Auth qua **OAuth/OS-keyring** (browser, hoặc device-code khi headless) hoặc env `ANTIGRAVITY_API_KEY`; token ở `~/.gemini/antigravity-cli/`. Cờ: `-p`, `--output-format json`, `-m`, `--approval-mode`/`--yolo`, `--sandbox`.
+> **`agy`** (Antigravity CLI) là **kế nhiệm Gemini CLI** của Google — mặc định mới của Hatch. `kind: gemini` vẫn dùng cho Gemini CLI cũ. Auth **chỉ OAuth/OS-keyring** (chạy `agy` lần đầu để login; device-code khi SSH) — **không có API-key env**, token ở `~/.gemini/antigravity-cli/`. Cờ (theo repo chính thức): `-p`/`--print`, `-m`/`--model`, `--dangerously-skip-permissions` (thay `--yolo` đã bỏ), `--sandbox`, `--print-timeout`. **Không có `--output-format json`.** ⚠ Bug upstream #76: `agy -p` có thể **nuốt stdout khi không phải TTY** → output capture có thể rỗng; transcript vẫn ghi phần in ra.
 
 `AGENTS.md` là convention dùng chung — **một** file phục vụ Codex + Antigravity.
 
-> **Agent CLI không bắt buộc.** Cài cái nào dùng cái nấy, chỉ cần **≥1**. `hatch doctor` kiểm auth bằng cách **gọi chính lệnh của CLI** (vd `codex login status`) hoặc đọc env key — **không scan thư mục credential** (an toàn). CLI nào chưa có lệnh status non-interactive thì khai `auth_check` trong registry, hoặc doctor để "?".
+## Kiểm tra auth (doctor) — gọi cmd, không scan file
+
+Agent CLI **không bắt buộc** — cài cái nào dùng cái nấy, chỉ cần **≥1**. `hatch doctor` xác minh đăng nhập bằng cách **gọi chính lệnh non-mutating của CLI** (exit 0 = đã login) hoặc đọc env key user tự set — **không bao giờ đọc thư mục credential** (bảo mật). Lệnh đã verify từ docs từng CLI:
+
+| kind | env key | auth-check command (exit 0 = authed) |
+|---|---|---|
+| `claude` | `ANTHROPIC_API_KEY` (hoặc `CLAUDE_CODE_OAUTH_TOKEN` cho CI) | `claude auth status` |
+| `codex` | `OPENAI_API_KEY` | `codex login status` |
+| `kiro` | `KIRO_API_KEY` | `kiro-cli whoami` |
+| `gemini` | `GEMINI_API_KEY`/`GOOGLE_API_KEY` | *(không có lệnh — chỉ env)* |
+| `agy` | *(không có)* | *(không có — OAuth/keyring; doctor để "?")* |
+
+CLI nào chưa có lệnh status non-interactive thì khai `auth_check: [...]` trên agent trong `registry.yaml`; doctor sẽ chạy lệnh đó. Không có thì doctor báo `?` (không đoán).
 
 ---
 

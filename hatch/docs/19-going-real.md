@@ -31,7 +31,7 @@ agents:
 ```bash
 claude            # /login (subscription) — hoặc env ANTHROPIC_API_KEY
 codex login       # ChatGPT OAuth — hoặc env OPENAI_API_KEY
-agy               # lần đầu: chọn Google OAuth (browser/device-code) — hoặc env ANTIGRAVITY_API_KEY
+agy               # lần đầu: chọn Google OAuth (browser/device-code) — chỉ OAuth/keyring, không env key
 kiro-cli          # login — headless cần env KIRO_API_KEY
 ```
 Token do từng CLI tự quản (OS keyring / file riêng) — Hatch **không** đụng vào. Nếu tự động hoá thì cấp env key tương ứng (không bao giờ commit vào repo).

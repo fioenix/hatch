@@ -15,12 +15,11 @@ import (
 )
 
 // envForKind names the credential env var each agent kind accepts (besides
-// interactive OAuth/login).
+// interactive OAuth/login). agy has no documented API-key env (OAuth/keyring).
 var envForKind = map[string]string{
 	"claude": "ANTHROPIC_API_KEY",
 	"codex":  "OPENAI_API_KEY",
 	"gemini": "GEMINI_API_KEY",
-	"agy":    "ANTIGRAVITY_API_KEY",
 	"kiro":   "KIRO_API_KEY",
 }
 
@@ -31,40 +30,51 @@ var defaultCmdForKind = map[string]string{
 }
 
 // defaultAuthCheck is a non-mutating, scriptable command (argv) per kind that
-// exits 0 when authenticated. Only commands known to be safe + non-interactive
-// are listed; for others we don't guess (the user can set `auth_check`).
+// exits 0 when authenticated — verified from each CLI's docs (see
+// docs/10-agent-adapters.md). gemini (legacy) and agy have no such command.
 var defaultAuthCheck = map[string][]string{
-	"codex": {"login", "status"},
+	"claude": {"auth", "status"},  // exit 0 if logged in, 1 if not (JSON)
+	"codex":  {"login", "status"}, // exit 0 if authed
+	"kiro":   {"whoami"},          // exit 0 if authed
 }
 
+// authKinds are agent kinds that require authentication (vs mock/manual/shell).
+var authKinds = map[string]bool{"claude": true, "codex": true, "gemini": true, "agy": true, "kiro": true}
+
 // authStatus reports how an agent authenticates, WITHOUT touching credential
-// files: it honours an env key (which the user set), else runs the agent CLI's
-// own auth-check command (configurable), else reports "unknown".
+// files (security): it honours an env key the user set, else runs the agent
+// CLI's own auth-check command, else — for CLIs with no scriptable check
+// (agy, gemini) — reports unknown rather than guessing.
 func authStatus(a model.Agent, bin string, cliPresent bool) string {
-	if ev := envForKind[a.Kind]; ev != "" && os.Getenv(ev) != "" {
+	ev := envForKind[a.Kind]
+	if ev != "" && os.Getenv(ev) != "" {
 		return "✓ env " + ev
 	}
 	check := a.AuthCheck
 	if len(check) == 0 {
 		check = defaultAuthCheck[a.Kind]
 	}
-	if len(check) == 0 {
-		if envForKind[a.Kind] == "" {
-			return "—"
+	if len(check) > 0 {
+		if !cliPresent {
+			return "? (CLI vắng)"
 		}
-		return "? set auth_check or run `" + bin + " login`"
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		c := exec.CommandContext(ctx, bin, check...)
+		c.Stdin = nil // never block on interactive input
+		if err := c.Run(); err == nil {
+			return "✓ `" + bin + " " + joinArgs(check) + "`"
+		}
+		return "✗ chưa login (`" + bin + " login`)"
 	}
-	if !cliPresent {
-		return "? (CLI vắng)"
+	if !authKinds[a.Kind] {
+		return "—" // mock/manual/shell: no credential needed
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	c := exec.CommandContext(ctx, bin, check...)
-	c.Stdin = nil // never let the check block on interactive input
-	if err := c.Run(); err == nil {
-		return "✓ login (`" + bin + " " + joinArgs(check) + "`)"
+	// Needs auth but exposes no scriptable check (OAuth/keyring only).
+	if ev != "" {
+		return "? OAuth/keyring (hoặc set " + ev + ")"
 	}
-	return "✗ chưa login (`" + bin + " login`)"
+	return "? OAuth/keyring (login bằng `" + bin + "`)"
 }
 
 func joinArgs(a []string) string {

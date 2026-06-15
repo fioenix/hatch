@@ -55,28 +55,33 @@ func (geminiAdapter) Build(req RunRequest) Invocation {
 }
 
 // agyAdapter drives Google's Antigravity CLI (`agy`, successor to Gemini CLI)
-// headlessly: `agy -p`. Auth is via OAuth/OS-keyring (or ANTIGRAVITY_API_KEY);
-// it reads GEMINI.md / AGENTS.md for project context.
+// headlessly: `agy -p <prompt>`. Auth is OAuth/OS-keyring (interactive `agy`
+// login; no API-key env). It reads GEMINI.md / AGENTS.md for project context.
+// Flags per the official repo (README/CHANGELOG): -p/--print, -m/--model,
+// --dangerously-skip-permissions (the former --yolo), --sandbox, --print-timeout.
+// NOTE (agy issue #76): `-p` can silently drop stdout when not attached to a
+// TTY, so captured output may be empty in CI/subprocess use until upstream
+// adds a real --format json. The transcript still records whatever is emitted.
 type agyAdapter struct{}
 
 func (agyAdapter) Kind() string { return "agy" }
 func (agyAdapter) Build(req RunRequest) Invocation {
-	args := []string{program(req.Agent, "agy"), "-p", req.Prompt, "--output-format", "json"}
+	args := []string{program(req.Agent, "agy"), "-p", req.Prompt}
 	if req.Agent.Model != "" {
 		args = append(args, "-m", req.Agent.Model)
 	}
 	switch req.Agent.Approval {
-	case "yolo":
-		args = append(args, "--yolo")
-	case "":
-		// default: let agy use its configured approval mode
-	default:
-		args = append(args, "--approval-mode", req.Agent.Approval)
+	case "yolo", "dangerous", "skip":
+		args = append(args, "--dangerously-skip-permissions")
 	}
 	if req.Agent.Sandbox != "" {
-		args = append(args, "--sandbox", req.Agent.Sandbox)
+		args = append(args, "--sandbox") // boolean flag in agy
 	}
-	return Invocation{Args: args, Headless: true}
+	return Invocation{
+		Args:     args,
+		Headless: true,
+		Note:     "agy -p may drop stdout on non-TTY (upstream #76); rely on transcript",
+	}
 }
 
 // kiroAdapter drives Kiro CLI headlessly: `kiro-cli chat --no-interactive`.
