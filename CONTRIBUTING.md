@@ -40,6 +40,29 @@ If the skill setup flow doesn't work correctly, open an issue with:
 - What you expected vs what happened
 - Any error messages
 
+## Contributing to Hatch (the `hatch/` Go project)
+
+Hatch is the multi-agent orchestrator CLI. To develop:
+
+```bash
+cd hatch
+./scripts/onboard.sh   # build + a runnable demo (mock agent)
+make test              # unit + integration tests
+make lint              # go vet + gofmt check (CI enforces both)
+make build             # bin/hatch + bin/hatch-mock
+```
+
+Standards for Go changes:
+
+- [ ] `make lint` and `make test` pass (CI runs them on every PR)
+- [ ] `go mod tidy` leaves `go.mod`/`go.sum` unchanged
+- [ ] New behavior has a test; security-relevant paths are sanitized
+- [ ] No secrets in code/config; credentials come from env vars only
+- [ ] Keep packages small and documented; match the surrounding style
+
+See `hatch/docs/` for the design and `SECURITY.md` for trust boundaries.
+
 ## Code of Conduct
 
-Be kind. Be helpful. Skip the drama.
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). In short: be kind, be helpful,
+skip the drama.

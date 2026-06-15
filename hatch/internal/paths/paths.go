@@ -56,11 +56,32 @@ func (l Layout) KBMeta() string          { return l.path(KBMetaFile) }
 func (l Layout) Presence() string        { return l.path(PresenceFile) }
 func (l Layout) Oncall() string          { return l.path(OncallFile) }
 func (l Layout) DocTemplates() string    { return l.path("templates", "docs") }
+
+// SafeSegment sanitizes s for use as a single path segment, preventing path
+// traversal: only [A-Za-z0-9._-] survive, the rest become '-', and the
+// traversal tokens "", ".", ".." collapse to "_".
+func SafeSegment(s string) string {
+	b := make([]rune, 0, len(s))
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '_', r == '-':
+			b = append(b, r)
+		default:
+			b = append(b, '-')
+		}
+	}
+	out := string(b)
+	if out == "" || out == "." || out == ".." {
+		return "_"
+	}
+	return out
+}
+
 func (l Layout) Runs(ticket string) string {
 	if ticket == "" || ticket == "-" {
 		ticket = "system"
 	}
-	return l.path("runs", ticket)
+	return l.path("runs", SafeSegment(ticket))
 }
 
 // RepoRoot is the directory that contains the .hatch directory.

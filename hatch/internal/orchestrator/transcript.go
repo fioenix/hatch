@@ -10,10 +10,7 @@ import (
 
 // transcriptDir is where per-run logs live, under .hatch/runs/<ticket>/.
 func transcriptDir(l paths.Layout, ticket string) string {
-	if ticket == "" || ticket == "-" {
-		ticket = "system"
-	}
-	return filepath.Join(l.Root, "runs", ticket)
+	return l.Runs(ticket)
 }
 
 // openTranscript creates an append log file for a run and writes a header.
@@ -23,7 +20,7 @@ func openTranscript(l paths.Layout, ticket, agent string) (*os.File, error) {
 		return nil, err
 	}
 	ts := time.Now().Format("20060102-150405")
-	f, err := os.OpenFile(filepath.Join(dir, ts+"-"+agent+".log"),
+	f, err := os.OpenFile(filepath.Join(dir, ts+"-"+paths.SafeSegment(agent)+".log"),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return nil, err

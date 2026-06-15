@@ -4,10 +4,15 @@ package validate
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
+
+// safeID is the allowed shape of a ticket id (also keeps it safe as a path
+// segment for branches, worktrees and run transcripts).
+var safeID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 // Board validates every ticket against the workflow lanes and registry roster.
 func Board(ws *config.Workspace, b *store.Board) []config.Problem {
@@ -26,6 +31,9 @@ func Board(ws *config.Workspace, b *store.Board) []config.Problem {
 		if t.ID == "" {
 			add(src, "ticket missing id")
 			continue
+		}
+		if !safeID.MatchString(t.ID) {
+			add(src, fmt.Sprintf("unsafe ticket id %q (allowed: letters, digits, . _ -)", t.ID))
 		}
 		if prev, ok := seen[t.ID]; ok {
 			add(src, fmt.Sprintf("duplicate ticket id %q (also in %s)", t.ID, prev))
