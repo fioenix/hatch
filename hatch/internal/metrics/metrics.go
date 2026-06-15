@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package metrics derives operational stats (throughput, cycle time, rework,
 // cost…) from the append-only ledger. Everything is computed, never tracked
 // separately. See docs/13-management.md (incl. the Goodhart caveat).

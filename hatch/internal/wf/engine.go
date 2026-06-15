@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package wf is the workflow engine: it authorises and performs lane
 // transitions, enforcing gates and policies and recording the ledger.
 package wf

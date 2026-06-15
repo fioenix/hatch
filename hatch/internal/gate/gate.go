@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package gate evaluates workflow gates: shell commands, checklists, required
 // fields, registry policies and human approvals.
 //

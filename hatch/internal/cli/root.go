@@ -23,18 +23,16 @@ func NewRoot() *cobra.Command {
 		SilenceErrors: true,
 		Version:       Version,
 	}
+	// The embedded-harness command set: SSOT compile, the MCP server agents
+	// drive themselves through, read-only views over the shared chat + ledger,
+	// and the knowledge base. Self-driving operator commands (run/plan/watch,
+	// ceremonies, tickets, …) are archived behind the `hatch_legacy` build tag.
 	root.AddCommand(
 		newInitCmd(),
 		newCompileCmd(),
 		newValidateCmd(),
 		newStatusCmd(),
-		newStandupCmd(),
-		newTicketCmd(),
 		newKBCmd(),
-		newGateCmd(),
-		newRunCmd(),
-		newPlanCmd(),
-		newWatchCmd(),
 		newBoardCmd(),
 		newChatCmd(),
 		newSyncCmd(),
@@ -43,27 +41,14 @@ func NewRoot() *cobra.Command {
 		newChannelCmd(),
 		newInboxCmd(),
 		newThreadCmd(),
-		newAskCmd(),
-		newConveneCmd(),
 		newSearchCmd(),
-		newCeremonyCmd(),
-		newEscalateCmd(),
-		newPairCmd(),
-		newMobCmd(),
-		newPresenceCmd(),
-		newOncallCmd(),
-		newCostCmd(),
-		newBudgetCmd(),
-		newWorkloadCmd(),
-		newPerfCmd(),
 		newDocCmd(),
 		newLogsCmd(),
 		newOrgCmd(),
-		newReportCmd(),
-		newTickCmd(),
 		newDoctorCmd(),
 		newMCPCmd(),
 	)
+	addLegacyCommands(root)
 	return root
 }
 

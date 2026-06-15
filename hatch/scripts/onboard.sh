@@ -34,17 +34,16 @@ if ! command -v go >/dev/null 2>&1; then
 fi
 go version
 
-step "Building hatch + hatch-mock"
+step "Building hatch"
 cd "$HATCH_DIR"
 make build
 BIN="$HATCH_DIR/bin"
-echo "built: $BIN/hatch, $BIN/hatch-mock"
+echo "built: $BIN/hatch"
 
 if [ "$DO_INSTALL" = "1" ]; then
   step "Installing to GOPATH/bin (go install)"
   make install
-  go build -o "$(go env GOPATH)/bin/hatch-mock" ./cmd/hatch-mock
-  echo "installed hatch + hatch-mock to $(go env GOPATH)/bin"
+  echo "installed hatch to $(go env GOPATH)/bin"
   echo "ensure that dir is on your PATH:  export PATH=\"\$(go env GOPATH)/bin:\$PATH\""
 fi
 
@@ -58,37 +57,39 @@ if [ "$DO_DEMO" = "1" ]; then
   cd "$DEMO_DIR"
   git init -q
   hatch init -w scrum >/dev/null
-  # Add a dedicated `mock` agent so the demo runs at ZERO token cost — WITHOUT
-  # changing the real agents (claude/codex/agy/kiro stay exactly as scaffolded).
-  awk '
-    /^agents:/ && !ins { print; print "  - id: mock"; print "    kind: mock"; print "    roles: [implementer, tester]"; ins=1; next }
-    { print }
-  ' .hatch/registry.yaml > .hatch/registry.yaml.tmp && mv .hatch/registry.yaml.tmp .hatch/registry.yaml
-  hatch compile >/dev/null 2>&1
 
-  step "Seeding a ticket and running the mock agent (real agents untouched)"
-  hatch ticket new --title "Export báo cáo ra CSV" --role implementer --priority P1 >/dev/null
-  hatch ticket claim T-001 --agent mock --why "demo" >/dev/null
-  hatch run T-001 --agent mock >/dev/null 2>&1 || true
+  step "Compiling the SSOT (protocol + per-agent MCP registration)"
+  hatch compile
+  echo
+  echo "  → CLAUDE.md / AGENTS.md / GEMINI.md carry the chat protocol + workflow."
+  echo "  → .mcp.json registers the 'hatch' MCP server for Claude Code."
 
-  step "Board"
+  step "Opening a task thread (a thread = a task)"
+  # In real use a coding agent does this through the Hatch MCP server; here we
+  # post as a human operator so the demo needs no agent CLI.
+  hatch msg --from human:operator -c '#export-csv' \
+    "@codex hãy stream CSV để giảm bộ nhớ" >/dev/null
+  echo "  posted to #export-csv"
+
+  step "Read-only status (threads + roster)"
   hatch status
-  step "Run transcript (hatch logs)"
-  hatch logs T-001 | sed 's/^/  /'
-  step "Cost + perf"
-  hatch cost T-001
-  hatch perf 2>/dev/null | sed 's/^/  /' | head -4
+
+  step "Read the thread"
+  hatch thread '#export-csv' | sed 's/^/  /'
 
   printf '\n\033[1;32m✔ Demo ready.\033[0m  Workspace: %s\n' "$DEMO_DIR"
   cat <<EOF
 
-Try next (from that dir, with $BIN on PATH):
-  hatch board                      # the multi-pane TUI (board + live output + activity)
-  hatch ticket move T-001 --to review --by implementer --agent codex --why done --skip-gates
-  hatch msg --from codex -c '#design' "@claude-code chốt streaming nhé"
-  hatch convene --topic "Thiết kế export" --agents codex,claude-code --rounds 1
-  hatch workload ; hatch budget
+How it works for real: open a coding agent (e.g. Claude Code) IN this workspace.
+The compiled CLAUDE.md + .mcp.json wire it to the shared chat — it opens a
+thread per task, @mentions teammates, and records knowledge, all over MCP.
 
-Docs: $HATCH_DIR/docs/overview.md
+Watch the squad (read-only, from that dir, with $BIN on PATH):
+  hatch board                      # mission control: threads + chat + ledger
+  hatch chat                       # Slack-style conversation view
+  hatch search streaming           # recall messages
+  hatch mcp --as claude-code       # the MCP server an agent connects to
+
+Docs: $HATCH_DIR/docs/overview.md, $HATCH_DIR/docs/20-embedded-harness-pivot.md
 EOF
 fi

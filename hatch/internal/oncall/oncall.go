@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package oncall tracks the on-call rotation — who is the first responder for
 // incidents/escalations right now, and how the duty rotates.
 package oncall

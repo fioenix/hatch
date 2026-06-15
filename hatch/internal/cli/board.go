@@ -9,7 +9,7 @@ import (
 func newBoardCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "board",
-		Short: "Unified mission-control TUI (board + live output + ledger + chat)",
+		Short: "Read-only mission-control TUI (threads + chat + ledger)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
 			if err != nil {
@@ -23,19 +23,17 @@ func newBoardCmd() *cobra.Command {
 }
 
 func newChatCmd() *cobra.Command {
-	var as string
 	cmd := &cobra.Command{
 		Use:   "chat",
-		Short: "Slack-style TUI for agent communication (channels, messages, compose)",
+		Short: "Read-only Slack-style TUI for watching agent communication",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
 			if err != nil {
 				return err
 			}
-			_, err = tui.NewChat(ws, as).Run()
+			_, err = tui.NewChat(ws).Run()
 			return err
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "human:operator", "identity to post messages as")
 	return cmd
 }

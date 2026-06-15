@@ -1,38 +1,32 @@
-// Package tui renders interactive dashboards with Bubble Tea. `hatch board` is
-// the unified mission control: BOARD + LIVE agent output + ACTIVITY (ledger) +
-// CHAT (the communication bus), in one process. `hatch chat` (chat.go) is a
-// focused stand-alone chat view sharing the same widgets.
+// Package tui renders read-only dashboards with Bubble Tea. `hatch board` is
+// mission control: THREADS (chat channels — each thread is a task) + CHAT (the
+// selected thread) + ACTIVITY (the ledger), in one view. It only observes; it
+// never drives agents. `hatch chat` (chat.go) is a focused stand-alone chat
+// view sharing the same widgets. Agents act through the Hatch MCP server.
 package tui
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
-	"github.com/fioenix/overclaud/hatch/internal/model"
-	"github.com/fioenix/overclaud/hatch/internal/orchestrator"
-	"github.com/fioenix/overclaud/hatch/internal/presence"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
 
 type pane int
 
 const (
-	paneBoard pane = iota
-	paneLive
-	paneActivity
+	paneThreads pane = iota
 	paneChat
+	paneActivity
 	numPanes
 )
 
@@ -45,30 +39,23 @@ var (
 	blurred = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240"))
 )
 
-type tref struct {
-	lane string
-	t    model.Ticket
+// threadStat summarises one chat thread (= one task) for the THREADS pane.
+type threadStat struct {
+	name  string
+	count int
+	last  string // HH:MM of the last message
 }
 
 type m struct {
 	ws     *config.Workspace
-	board  *store.Board
-	ledger *store.Ledger
 	bus    *bus.Bus
+	ledger *store.Ledger
 
-	refs     []tref
+	threads  []threadStat
 	sel      int
 	focus    pane
-	live     viewport.Model
-	activity viewport.Model
 	chat     viewport.Model
-	liveTick string
-
-	channels  []string
-	chatSel   int
-	input     textinput.Model
-	composing bool
-	chatAs    string
+	activity viewport.Model
 
 	w, h   int
 	status string
@@ -76,23 +63,17 @@ type m struct {
 }
 
 type tickMsg time.Time
-type ranMsg struct {
-	ticket string
-	err    error
-}
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
-// New returns the unified mission-control dashboard program.
+// New returns the read-only mission-control dashboard program.
 func New(ws *config.Workspace) *tea.Program {
-	ti := textinput.New()
-	ti.Placeholder = "message (@mention để tag) — Enter gửi, Esc huỷ"
-	ti.CharLimit = 2000
 	mm := m{
-		ws: ws, board: store.NewBoard(ws.Layout), ledger: store.NewLedger(ws.Layout),
-		bus: bus.New(ws.Layout), input: ti, chatAs: "human:operator",
+		ws:     ws,
+		bus:    bus.New(ws.Layout),
+		ledger: store.NewLedger(ws.Layout),
 	}
 	return tea.NewProgram(&mm, tea.WithAltScreen())
 }
@@ -100,59 +81,32 @@ func New(ws *config.Workspace) *tea.Program {
 func (mm *m) Init() tea.Cmd { return tick() }
 
 func (mm *m) reload() {
-	var refs []tref
-	for _, lane := range mm.ws.Workflow.Lanes {
-		ts, _ := mm.board.ListLane(lane.ID)
-		for _, t := range ts {
-			refs = append(refs, tref{lane.ID, t})
-		}
-	}
-	mm.refs = refs
-	if mm.sel >= len(refs) {
-		mm.sel = max(0, len(refs)-1)
-	}
-	if mm.liveTick == "" && len(refs) > 0 {
-		mm.liveTick = refs[mm.sel].t.ID
-	}
 	chs, _ := mm.bus.Channels()
 	sort.Strings(chs)
-	mm.channels = chs
-	if mm.chatSel >= len(chs) {
-		mm.chatSel = max(0, len(chs)-1)
+	stats := make([]threadStat, 0, len(chs))
+	for _, ch := range chs {
+		msgs, _ := mm.bus.Messages(ch)
+		last := ""
+		if len(msgs) > 0 {
+			if t, e := time.Parse(time.RFC3339Nano, msgs[len(msgs)-1].TS); e == nil {
+				last = t.Format("15:04")
+			}
+		}
+		stats = append(stats, threadStat{name: ch, count: len(msgs), last: last})
 	}
-	mm.live.SetContent(mm.transcript(mm.liveTick))
-	mm.activity.SetContent(mm.activityFeed())
+	mm.threads = stats
+	if mm.sel >= len(stats) {
+		mm.sel = max(0, len(stats)-1)
+	}
 	mm.chat.SetContent(mm.chatFeed())
+	mm.activity.SetContent(mm.activityFeed())
 }
 
 func (mm *m) curChannel() string {
-	if mm.chatSel < len(mm.channels) {
-		return mm.channels[mm.chatSel]
+	if mm.sel < len(mm.threads) {
+		return mm.threads[mm.sel].name
 	}
 	return ""
-}
-
-func (mm *m) transcript(ticket string) string {
-	if ticket == "" {
-		return dim.Render("(chọn ticket, nhấn f để theo dõi live output)")
-	}
-	dir := mm.ws.Layout.Runs(ticket)
-	ents, err := os.ReadDir(dir)
-	if err != nil || len(ents) == 0 {
-		return dim.Render("(chưa có run nào cho " + ticket + ")")
-	}
-	var logs []string
-	for _, e := range ents {
-		if strings.HasSuffix(e.Name(), ".log") {
-			logs = append(logs, e.Name())
-		}
-	}
-	if len(logs) == 0 {
-		return dim.Render("(chưa có transcript)")
-	}
-	sort.Strings(logs)
-	raw, _ := os.ReadFile(filepath.Join(dir, logs[len(logs)-1]))
-	return string(raw)
 }
 
 func (mm *m) activityFeed() string {
@@ -171,11 +125,11 @@ func (mm *m) activityFeed() string {
 func (mm *m) chatFeed() string {
 	ch := mm.curChannel()
 	if ch == "" {
-		return dim.Render("(chưa có channel — nhấn i để gửi, c để đổi channel)")
+		return dim.Render("(chưa có thread nào)")
 	}
 	msgs, err := mm.bus.Messages(ch)
 	if err != nil || len(msgs) == 0 {
-		return dim.Render("(channel trống)")
+		return dim.Render("(thread trống)")
 	}
 	var b strings.Builder
 	for _, msg := range msgs {
@@ -194,14 +148,12 @@ func (mm *m) chatFeed() string {
 
 func (mm *m) layout() {
 	rightW := mm.w - mm.w/2 - 4
-	vpH := (mm.h - 9) / 3
+	vpH := (mm.h - 6) / 2
 	if vpH < 3 {
 		vpH = 3
 	}
-	mm.live = viewport.New(rightW, vpH)
-	mm.activity = viewport.New(rightW, vpH)
 	mm.chat = viewport.New(rightW, vpH)
-	mm.input.Width = rightW - 4
+	mm.activity = viewport.New(rightW, vpH)
 	mm.ready = true
 }
 
@@ -212,21 +164,11 @@ func (mm *m) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		mm.layout()
 		mm.reload()
 	case tickMsg:
-		if mm.ready && !mm.composing {
+		if mm.ready {
 			mm.reload()
-			mm.chat.GotoBottom()
 		}
 		return mm, tick()
-	case ranMsg:
-		if msg.err != nil {
-			mm.status = "run " + msg.ticket + " lỗi: " + msg.err.Error()
-		} else {
-			mm.status = "run " + msg.ticket + " xong"
-		}
 	case tea.KeyMsg:
-		if mm.composing {
-			return mm.updateCompose(msg)
-		}
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
 			return mm, tea.Quit
@@ -236,25 +178,6 @@ func (mm *m) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			mm.scrollUp()
 		case "down", "j":
 			mm.scrollDown()
-		case "c":
-			if mm.focus == paneChat && len(mm.channels) > 0 {
-				mm.chatSel = (mm.chatSel + 1) % len(mm.channels)
-				mm.chat.SetContent(mm.chatFeed())
-			}
-		case "i":
-			if mm.focus == paneChat && mm.curChannel() != "" {
-				mm.composing = true
-				mm.input.Focus()
-			}
-		case "f":
-			if mm.focus == paneBoard && mm.sel < len(mm.refs) {
-				mm.liveTick = mm.refs[mm.sel].t.ID
-				mm.status = "theo dõi " + mm.liveTick
-			}
-		case "r":
-			if mm.sel < len(mm.refs) {
-				return mm, mm.runSelected()
-			}
 		case "g":
 			mm.reload()
 		}
@@ -262,77 +185,31 @@ func (mm *m) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return mm, nil
 }
 
-func (mm *m) updateCompose(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		mm.composing = false
-		mm.input.Blur()
-		mm.input.SetValue("")
-	case "enter":
-		if v := strings.TrimSpace(mm.input.Value()); v != "" && mm.curChannel() != "" {
-			if _, err := mm.bus.Post(bus.Message{Channel: mm.curChannel(), From: mm.chatAs, To: []string{mm.curChannel()}, Body: v}); err != nil {
-				mm.status = "lỗi gửi: " + err.Error()
-			} else {
-				mm.status = "đã gửi tới " + mm.curChannel()
-			}
-		}
-		mm.composing = false
-		mm.input.Blur()
-		mm.input.SetValue("")
-		mm.chat.SetContent(mm.chatFeed())
-		mm.chat.GotoBottom()
-	default:
-		var cmd tea.Cmd
-		mm.input, cmd = mm.input.Update(msg)
-		return mm, cmd
-	}
-	return mm, nil
-}
-
 func (mm *m) scrollUp() {
 	switch mm.focus {
-	case paneBoard:
+	case paneThreads:
 		if mm.sel > 0 {
 			mm.sel--
+			mm.chat.SetContent(mm.chatFeed())
 		}
-	case paneLive:
-		mm.live.LineUp(1)
-	case paneActivity:
-		mm.activity.LineUp(1)
 	case paneChat:
 		mm.chat.LineUp(1)
+	case paneActivity:
+		mm.activity.LineUp(1)
 	}
 }
 
 func (mm *m) scrollDown() {
 	switch mm.focus {
-	case paneBoard:
-		if mm.sel < len(mm.refs)-1 {
+	case paneThreads:
+		if mm.sel < len(mm.threads)-1 {
 			mm.sel++
+			mm.chat.SetContent(mm.chatFeed())
 		}
-	case paneLive:
-		mm.live.LineDown(1)
-	case paneActivity:
-		mm.activity.LineDown(1)
 	case paneChat:
 		mm.chat.LineDown(1)
-	}
-}
-
-func (mm *m) runSelected() tea.Cmd {
-	ref := mm.refs[mm.sel]
-	mm.liveTick = ref.t.ID
-	agent, ok := pick(mm.ws, ref.t.Role)
-	if !ok {
-		mm.status = "không có agent rảnh cho vai " + ref.t.Role
-		return nil
-	}
-	mm.status = "đang chạy " + agent.ID + " trên " + ref.t.ID + "…"
-	ws, t, role := mm.ws, ref.t, ref.t.Role
-	o := orchestrator.Orchestrator{Ledger: store.NewLedger(ws.Layout), Bus: bus.New(ws.Layout)}
-	return func() tea.Msg {
-		_, err := o.Run(ws, agent, t, role, orchestrator.RunOptions{Stdout: io.Discard})
-		return ranMsg{ticket: t.ID, err: err}
+	case paneActivity:
+		mm.activity.LineDown(1)
 	}
 }
 
@@ -345,36 +222,28 @@ func (mm *m) View() string {
 		project = "Hatch"
 	}
 	header := hdr.Render(project+" — mission control") + "  " +
-		dim.Render(fmt.Sprintf("(%s · %d tickets)", mm.ws.Workflow.Template, len(mm.refs)))
+		dim.Render(fmt.Sprintf("(read-only · %d threads)", len(mm.threads)))
 
-	// Board pane.
-	var bd strings.Builder
-	curLane := ""
-	for i, r := range mm.refs {
-		if r.lane != curLane {
-			curLane = r.lane
-			bd.WriteString(laneSty.Render(curLane) + "\n")
-		}
-		line := fmt.Sprintf("  %-7s %-11s %s", r.t.ID, r.t.Assignee, trunc(r.t.Title, 20))
+	// THREADS pane: each chat thread is a task.
+	var th strings.Builder
+	if len(mm.threads) == 0 {
+		th.WriteString(dim.Render("(chưa có thread — agent mở qua Hatch MCP)") + "\n")
+	}
+	for i, t := range mm.threads {
+		line := fmt.Sprintf("  #%-20s %3d  %s", trunc(t.name, 20), t.count, t.last)
 		if i == mm.sel {
-			line = selSty.Render("▸ " + strings.TrimLeft(line, " "))
+			line = selSty.Render("▸ #" + trunc(t.name, 20) + fmt.Sprintf("  %d  %s", t.count, t.last))
 		}
-		bd.WriteString(line + "\n")
+		th.WriteString(line + "\n")
 	}
-	boardBox := paneBox(mm.focus == paneBoard, "BOARD", bd.String(), mm.w/2-2, mm.h-4)
+	threadsBox := paneBox(mm.focus == paneThreads, "THREADS (tasks)", th.String(), mm.w/2-2, mm.h-4)
 
-	liveBox := paneBox(mm.focus == paneLive, "LIVE · "+mm.liveTick, mm.live.View(), 0, 0)
+	chatBox := paneBox(mm.focus == paneChat, "CHAT · #"+mm.curChannel(), mm.chat.View(), 0, 0)
 	actBox := paneBox(mm.focus == paneActivity, "ACTIVITY (ledger)", mm.activity.View(), 0, 0)
-	chatTitle := "CHAT · #" + mm.curChannel()
-	chatBody := mm.chat.View()
-	if mm.composing {
-		chatBody += "\n" + mm.input.View()
-	}
-	chatBox := paneBox(mm.focus == paneChat, chatTitle, chatBody, 0, 0)
-	right := lipgloss.JoinVertical(lipgloss.Left, liveBox, actBox, chatBox)
-	body := lipgloss.JoinHorizontal(lipgloss.Top, boardBox, right)
+	right := lipgloss.JoinVertical(lipgloss.Left, chatBox, actBox)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, threadsBox, right)
 
-	foot := dim.Render("tab pane · ↑/↓ move·scroll · f follow · r run · c channel · i chat · g refresh · q quit")
+	foot := dim.Render("tab pane · ↑/↓ move·scroll · g refresh · q quit")
 	if mm.status != "" {
 		foot = selSty.Render(mm.status) + "   " + foot
 	}
@@ -393,16 +262,6 @@ func paneBox(focus bool, title, content string, w, h int) string {
 		style = style.Height(h)
 	}
 	return style.Render(laneSty.Render(title) + "\n" + content)
-}
-
-func pick(ws *config.Workspace, role string) (model.Agent, bool) {
-	pres := presence.Load(ws.Layout)
-	for _, a := range ws.Registry.AgentsForRole(role) {
-		if pres.CanTakeWork(a.ID) {
-			return a, true
-		}
-	}
-	return model.Agent{}, false
 }
 
 func trunc(s string, n int) string {

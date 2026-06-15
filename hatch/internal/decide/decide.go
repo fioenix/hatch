@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package decide turns a meeting decision into a recorded ADR in the Knowledge
 // Base, closing the loop from convene (DECISION:) to durable knowledge.
 package decide

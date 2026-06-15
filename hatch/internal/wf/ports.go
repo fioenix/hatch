@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 package wf
 
 import "github.com/fioenix/overclaud/hatch/internal/port"

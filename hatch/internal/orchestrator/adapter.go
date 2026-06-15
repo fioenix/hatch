@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package orchestrator (Phase 3) spawns coding-agent CLIs headlessly to work
 // tickets, capturing their output to the ledger. Adapters translate a generic
 // run request into the native invocation each agent expects; see

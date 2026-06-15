@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package ceremony runs the recurring squad rituals declared in workflow.yaml:
 // standup (per-agent digest + blockers), retro (cycle summary + KB promotion
 // candidates). Planning is delegated to the orchestrator (spawn the Conductor).

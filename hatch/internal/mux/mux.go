@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package mux opens agent runs in terminal-multiplexer panes (tmux / Zellij)
 // so you can watch each spawned agent live, side by side (observability tier B,
 // docs/18). The single-process TUI (`hatch board`) is the no-deps default; this

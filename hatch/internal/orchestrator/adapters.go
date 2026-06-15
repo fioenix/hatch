@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 package orchestrator
 
 // Per-kind adapters. Flags mirror docs/10-agent-adapters.md. Capability is

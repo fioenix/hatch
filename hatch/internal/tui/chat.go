@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,29 +22,21 @@ const (
 )
 
 type chat struct {
-	ws        *config.Workspace
-	bus       *bus.Bus
-	channels  []string
-	sel       int
-	focus     chatFocus
-	msgs      viewport.Model
-	input     textinput.Model
-	as        string
-	composing bool
-	w, h      int
-	status    string
-	ready     bool
+	ws       *config.Workspace
+	bus      *bus.Bus
+	channels []string
+	sel      int
+	focus    chatFocus
+	msgs     viewport.Model
+	w, h     int
+	ready    bool
 }
 
-// NewChat returns a Slack-style TUI for the agent communication bus.
-func NewChat(ws *config.Workspace, as string) *tea.Program {
-	if as == "" {
-		as = "human:operator"
-	}
-	ti := textinput.New()
-	ti.Placeholder = "message (@mention để tag) — Enter gửi, Esc huỷ"
-	ti.CharLimit = 2000
-	c := &chat{ws: ws, bus: bus.New(ws.Layout), as: as, input: ti}
+// NewChat returns a read-only Slack-style TUI for observing the squad's
+// communication bus. Agents post through the Hatch MCP server; this view only
+// watches.
+func NewChat(ws *config.Workspace) *tea.Program {
+	c := &chat{ws: ws, bus: bus.New(ws.Layout)}
 	return tea.NewProgram(c, tea.WithAltScreen())
 }
 
@@ -71,11 +62,11 @@ func (c *chat) current() string {
 func (c *chat) renderMessages() string {
 	ch := c.current()
 	if ch == "" {
-		return dim.Render("(chưa có channel — gửi message để tạo)")
+		return dim.Render("(chưa có thread — agent mở qua Hatch MCP)")
 	}
 	msgs, err := c.bus.Messages(ch)
 	if err != nil || len(msgs) == 0 {
-		return dim.Render("(channel trống)")
+		return dim.Render("(thread trống)")
 	}
 	var b strings.Builder
 	for _, m := range msgs {
@@ -97,8 +88,7 @@ func (c *chat) renderMessages() string {
 
 func (c *chat) layout() {
 	mw := c.w - c.w/4 - 4
-	c.msgs = viewport.New(mw, c.h-7)
-	c.input.Width = mw - 4
+	c.msgs = viewport.New(mw, c.h-5)
 	c.ready = true
 }
 
@@ -109,41 +99,14 @@ func (c *chat) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		c.layout()
 		c.reload()
 	case tickMsg:
-		if c.ready && !c.composing {
+		if c.ready {
 			c.reload()
 			c.msgs.GotoBottom()
 		}
 		return c, tick()
 	case tea.KeyMsg:
-		if c.composing {
-			switch msg.String() {
-			case "esc":
-				c.composing = false
-				c.input.Blur()
-				c.input.SetValue("")
-			case "enter":
-				if v := strings.TrimSpace(c.input.Value()); v != "" && c.current() != "" {
-					_, err := c.bus.Post(bus.Message{Channel: c.current(), From: c.as, To: []string{c.current()}, Body: v})
-					if err != nil {
-						c.status = "lỗi gửi: " + err.Error()
-					} else {
-						c.status = "đã gửi tới " + c.current()
-					}
-				}
-				c.composing = false
-				c.input.Blur()
-				c.input.SetValue("")
-				c.reload()
-				c.msgs.GotoBottom()
-			default:
-				var cmd tea.Cmd
-				c.input, cmd = c.input.Update(msg)
-				return c, cmd
-			}
-			return c, nil
-		}
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q", "ctrl+c", "esc":
 			return c, tea.Quit
 		case "tab":
 			c.focus = (c.focus + 1) % 2
@@ -161,11 +124,6 @@ func (c *chat) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				c.msgs.LineDown(1)
 			}
-		case "i":
-			if c.current() != "" {
-				c.composing = true
-				c.input.Focus()
-			}
 		case "g":
 			c.reload()
 		}
@@ -181,7 +139,7 @@ func (c *chat) View() string {
 	if project == "" {
 		project = "Hatch"
 	}
-	header := hdr.Render(project+" — chat") + "  " + dim.Render("as "+c.as)
+	header := hdr.Render(project+" — chat") + "  " + dim.Render("(read-only)")
 
 	// Channel list.
 	var cl strings.Builder
@@ -199,15 +157,7 @@ func (c *chat) View() string {
 	msgBox := paneBox(c.focus == focusMessages, "#"+c.current(), c.msgs.View(), 0, 0)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, chanBox, msgBox)
 
-	var foot string
-	if c.composing {
-		foot = c.input.View()
-	} else {
-		foot = dim.Render("tab pane · ↑/↓ channel·scroll · i soạn · g refresh · q quit")
-		if c.status != "" {
-			foot = selSty.Render(c.status) + "   " + foot
-		}
-	}
+	foot := dim.Render("tab pane · ↑/↓ channel·scroll · g refresh · q quit")
 	return header + "\n" + body + "\n" + foot
 }
 

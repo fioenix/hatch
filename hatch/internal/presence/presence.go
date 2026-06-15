@@ -1,3 +1,5 @@
+//go:build hatch_legacy
+
 // Package presence tracks per-agent availability (like Slack presence + PTO):
 // who is free to take work, who is busy/paused/offline. Capacity-aware
 // assignment uses this plus WIP to route work to a free teammate.
