@@ -20,7 +20,7 @@ func TestEscalatePostsAndTargets(t *testing.T) {
 	if got := EscalateTarget(ws); got != "claude-code" {
 		t.Fatalf("escalate target = %q, want claude-code", got)
 	}
-	if err := Escalate(ws, store.NewLedger(l), "T-001", "codex", "stuck"); err != nil {
+	if err := Escalate(ws, store.NewBoard(l), store.NewLedger(l), "T-001", "codex", "stuck"); err != nil {
 		t.Fatal(err)
 	}
 	msgs, _ := bus.New(l).Messages("#escalations")

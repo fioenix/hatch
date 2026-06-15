@@ -8,7 +8,6 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/oncall"
-	"github.com/fioenix/overclaud/hatch/internal/store"
 )
 
 // escalationThreshold is the number of gate failures on a ticket that triggers
@@ -43,9 +42,9 @@ func EscalateTargetForRole(ws *config.Workspace, role string) string {
 
 // Escalate records an escalation in the ledger and notifies the target on the
 // #escalations channel.
-func Escalate(ws *config.Workspace, lg *store.Ledger, ticket, from, why string) error {
+func Escalate(ws *config.Workspace, b Board, lg Ledger, ticket, from, why string) error {
 	role := ""
-	if t, ok, _ := store.NewBoard(ws.Layout).Find(ticket, ws.Workflow.LaneIDs()); ok {
+	if t, ok, _ := b.Find(ticket, ws.Workflow.LaneIDs()); ok {
 		role = t.Role
 	}
 	target := EscalateTargetForRole(ws, role)
@@ -67,7 +66,7 @@ func Escalate(ws *config.Workspace, lg *store.Ledger, ticket, from, why string) 
 
 // maybeEscalate auto-escalates when a ticket has hit the gate-failure threshold
 // and hasn't already been escalated.
-func maybeEscalate(ws *config.Workspace, lg *store.Ledger, ticket string) {
+func maybeEscalate(ws *config.Workspace, b Board, lg Ledger, ticket string) {
 	entries, err := lg.Recent(1)
 	if err != nil {
 		return
@@ -85,7 +84,7 @@ func maybeEscalate(ws *config.Workspace, lg *store.Ledger, ticket string) {
 		}
 	}
 	if fails >= escalationThreshold && !escalated {
-		_ = Escalate(ws, lg, ticket, "orchestrator",
+		_ = Escalate(ws, b, lg, ticket, "orchestrator",
 			fmt.Sprintf("gate failed %d times — cần can thiệp", fails))
 	}
 }

@@ -1,5 +1,8 @@
 // Package gate evaluates workflow gates: shell commands, checklists, required
 // fields, registry policies and human approvals.
+//
+// The side-effecting part — running a command — sits behind the Runner port so
+// it can be swapped (e.g. a fake in tests). ShellRunner is the default adapter.
 package gate
 
 import (
@@ -11,6 +14,25 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/model"
 )
 
+// Runner is the port for executing a gate command. Implementations decide how
+// (and whether) to actually run it.
+type Runner interface {
+	Run(cmdline, dir string) (output string, err error)
+}
+
+// ShellRunner is the production adapter: runs the command via `sh -c`.
+type ShellRunner struct{}
+
+func (ShellRunner) Run(cmdline, dir string) (string, error) {
+	c := exec.Command("sh", "-c", cmdline)
+	c.Dir = dir
+	out, err := c.CombinedOutput()
+	return string(out), err
+}
+
+// Evaluator evaluates gates using an injected Runner.
+type Evaluator struct{ Runner Runner }
+
 // Outcome is the result of evaluating one gate.
 type Outcome struct {
 	Name   string
@@ -21,8 +43,8 @@ type Outcome struct {
 }
 
 // Evaluate runs a single named gate for a ticket. Command gates execute in
-// repoRoot. Human gates never auto-pass; they return Human=true.
-func Evaluate(ws *config.Workspace, name string, t model.Ticket, repoRoot string) Outcome {
+// repoRoot via the Runner. Human gates never auto-pass; they return Human=true.
+func (e Evaluator) Evaluate(ws *config.Workspace, name string, t model.Ticket, repoRoot string) Outcome {
 	g, ok := ws.Workflow.Gates[name]
 	if !ok {
 		return Outcome{Name: name, Passed: false, Detail: "gate not defined"}
@@ -30,7 +52,7 @@ func Evaluate(ws *config.Workspace, name string, t model.Ticket, repoRoot string
 	o := Outcome{Name: name, Type: g.Type}
 	switch g.Type {
 	case model.GateCommand:
-		out, err := runShell(g.Run, repoRoot)
+		out, err := e.Runner.Run(g.Run, repoRoot)
 		o.Passed = err == nil
 		o.Detail = tail(out, 400)
 		if err != nil && o.Detail == "" {
@@ -57,20 +79,26 @@ func Evaluate(ws *config.Workspace, name string, t model.Ticket, repoRoot string
 	return o
 }
 
-// EvaluateAll runs the gates a transition declares and returns the outcomes.
-func EvaluateAll(ws *config.Workspace, names []string, t model.Ticket, repoRoot string) []Outcome {
+// EvaluateAll runs the gates a transition declares.
+func (e Evaluator) EvaluateAll(ws *config.Workspace, names []string, t model.Ticket, repoRoot string) []Outcome {
 	outs := make([]Outcome, 0, len(names))
 	for _, n := range names {
-		outs = append(outs, Evaluate(ws, n, t, repoRoot))
+		outs = append(outs, e.Evaluate(ws, n, t, repoRoot))
 	}
 	return outs
 }
 
-func runShell(cmdline, dir string) (string, error) {
-	c := exec.Command("sh", "-c", cmdline)
-	c.Dir = dir
-	out, err := c.CombinedOutput()
-	return string(out), err
+// Default is the production evaluator (shell command runner).
+var Default = Evaluator{Runner: ShellRunner{}}
+
+// Evaluate / EvaluateAll are convenience wrappers over the Default evaluator,
+// so callers that don't need a custom Runner stay terse.
+func Evaluate(ws *config.Workspace, name string, t model.Ticket, repoRoot string) Outcome {
+	return Default.Evaluate(ws, name, t, repoRoot)
+}
+
+func EvaluateAll(ws *config.Workspace, names []string, t model.Ticket, repoRoot string) []Outcome {
+	return Default.EvaluateAll(ws, names, t, repoRoot)
 }
 
 func ticketField(t model.Ticket, field string) string {

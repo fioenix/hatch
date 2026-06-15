@@ -138,4 +138,4 @@ bin/hatch oncall set --rotation claude-code,codex        # lịch trực; escala
 - **Phase 1+2 — xong:** model + filesystem store, `init` (scaffold + 4 workflow template), compiler đa surface (Claude/Codex/Gemini/Kiro) + manifest stale-detection, workflow engine (transition + gate + no-self-review + dependency), ledger append-only, Knowledge Base, các lệnh `status/standup/validate/gate/ticket/kb`.
 - **Phase 3 — xong (cơ chế):** orchestrator + adapter cho từng agent (`hatch run`/`plan`/`watch`) dựng invocation headless đúng theo [adapters](docs/10-agent-adapters.md), worktree isolation, TUI dashboard (`hatch board`). Adapter `kiro`/`antigravity`/`manual` rơi về handoff khi không có headless. `--dry-run` cho phép kiểm tra invocation mà không cần cài agent.
 
-Có unit + integration test, CI, Makefile. Mã nguồn: `cmd/hatch` + `internal/`. Thiết kế gốc trong `docs/`.
+Có unit + integration test, CI, Makefile. Mã nguồn: `cmd/hatch` + `internal/`. Thiết kế gốc trong `docs/`. Kiến trúc (Lean Hexagonal, ports & adapters): [ARCHITECTURE.md](ARCHITECTURE.md).

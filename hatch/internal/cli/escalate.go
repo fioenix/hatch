@@ -23,7 +23,7 @@ func newEscalateCmd() *cobra.Command {
 			if why == "" {
 				return fmt.Errorf("--why is required")
 			}
-			if err := wf.Escalate(ws, store.NewLedger(ws.Layout), args[0], from, why); err != nil {
+			if err := wf.Escalate(ws, store.NewBoard(ws.Layout), store.NewLedger(ws.Layout), args[0], from, why); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "escalated %s → %s\n", args[0], wf.EscalateTarget(ws))
