@@ -58,14 +58,18 @@ if [ "$DO_DEMO" = "1" ]; then
   cd "$DEMO_DIR"
   git init -q
   hatch init -w scrum >/dev/null
-  # Point the implementer agent at the mock adapter so runs work without a real CLI.
-  sed -i.bak -E 's/kind: codex/kind: mock/' .hatch/registry.yaml && rm -f .hatch/registry.yaml.bak
+  # Add a dedicated `mock` agent so the demo runs at ZERO token cost — WITHOUT
+  # changing the real agents (claude/codex/agy/kiro stay exactly as scaffolded).
+  awk '
+    /^agents:/ && !ins { print; print "  - id: mock"; print "    kind: mock"; print "    roles: [implementer, tester]"; ins=1; next }
+    { print }
+  ' .hatch/registry.yaml > .hatch/registry.yaml.tmp && mv .hatch/registry.yaml.tmp .hatch/registry.yaml
   hatch compile >/dev/null 2>&1
 
-  step "Seeding a ticket and running the mock agent"
+  step "Seeding a ticket and running the mock agent (real agents untouched)"
   hatch ticket new --title "Export báo cáo ra CSV" --role implementer --priority P1 >/dev/null
-  hatch ticket claim T-001 --agent codex --why "demo" >/dev/null
-  hatch run T-001 --agent codex >/dev/null 2>&1 || true
+  hatch ticket claim T-001 --agent mock --why "demo" >/dev/null
+  hatch run T-001 --agent mock >/dev/null 2>&1 || true
 
   step "Board"
   hatch status
