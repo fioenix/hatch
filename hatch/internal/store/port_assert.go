@@ -7,4 +7,5 @@ import "github.com/fioenix/overclaud/hatch/internal/port"
 var (
 	_ port.Board  = (*Board)(nil)
 	_ port.Ledger = (*Ledger)(nil)
+	_ port.KB     = (*KB)(nil)
 )

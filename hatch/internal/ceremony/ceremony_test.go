@@ -4,11 +4,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/scaffold"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
+
+func svc(w *config.Workspace) Service {
+	return Service{
+		Board:  store.NewBoard(w.Layout),
+		Ledger: store.NewLedger(w.Layout),
+		Bus:    bus.New(w.Layout),
+		KB:     store.NewKB(w.Layout),
+	}
+}
 
 func ws(t *testing.T) *config.Workspace {
 	t.Helper()
@@ -30,7 +40,7 @@ func TestStandupDigestsByAgent(t *testing.T) {
 	lg.Append(model.Entry{Agent: "codex", Ticket: "T-001", Action: model.ActHandoff, Why: "y", Handoff: "done"})
 	lg.Append(model.Entry{Agent: "claude-code", Ticket: "T-001", Action: model.ActReview, Why: "z", Result: "approved"})
 
-	rep, err := Standup(w, 1)
+	rep, err := svc(w).Standup(w, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +59,7 @@ func TestRetroCounts(t *testing.T) {
 	lg.Append(model.Entry{Agent: "claude-code", Ticket: "T-1", Action: model.ActDone, Why: "merged"})
 	lg.Append(model.Entry{Agent: "codex", Ticket: "T-2", Action: model.ActBlock, Why: "stuck"})
 
-	r, err := Retro(w)
+	r, err := svc(w).Retro(w)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +73,7 @@ func TestDemoAndGrooming(t *testing.T) {
 	// grooming: a fresh backlog ticket from `ticket new` has TODO body + no priority.
 	b := store.NewBoard(w.Layout)
 	b.Write(model.Ticket{ID: "T-001", Lane: "backlog", Status: "backlog", Title: "vague", Body: "## Acceptance\nTODO\n"})
-	_, items, err := Grooming(w)
+	_, items, err := svc(w).Grooming(w)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +82,7 @@ func TestDemoAndGrooming(t *testing.T) {
 	}
 	// demo: a ticket in the terminal lane shows up.
 	b.Write(model.Ticket{ID: "T-002", Lane: "done", Status: "done", Title: "shipped", Assignee: "codex"})
-	_, shown, err := Demo(w)
+	_, shown, err := svc(w).Demo(w)
 	if err != nil {
 		t.Fatal(err)
 	}

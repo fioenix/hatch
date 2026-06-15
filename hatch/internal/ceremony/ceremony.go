@@ -8,11 +8,19 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
-	"github.com/fioenix/overclaud/hatch/internal/store"
+	"github.com/fioenix/overclaud/hatch/internal/port"
 )
+
+// Service runs the squad rituals as a use-case over ports — it depends on no
+// concrete infrastructure (the composition root injects adapters).
+type Service struct {
+	Board  port.Board
+	Ledger port.Ledger
+	Bus    port.Bus
+	KB     port.KB
+}
 
 // StandupReport summarises recent activity per agent plus current blockers.
 type StandupReport struct {
@@ -24,11 +32,11 @@ type StandupReport struct {
 // Standup builds a digest from the last `days` of ledger activity and the
 // board's blocked lanes — the deterministic equivalent of "what did you do,
 // what's next, what's blocking you".
-func Standup(ws *config.Workspace, days int) (*StandupReport, error) {
+func (s Service) Standup(ws *config.Workspace, days int) (*StandupReport, error) {
 	if days < 1 {
 		days = 1
 	}
-	entries, err := store.NewLedger(ws.Layout).Recent(days)
+	entries, err := s.Ledger.Recent(days)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +55,7 @@ func Standup(ws *config.Workspace, days int) (*StandupReport, error) {
 		perAgent[e.Agent] = appendUnique(perAgent[e.Agent], line)
 	}
 
-	blockers, err := blockedTickets(ws)
+	blockers, err := s.blockedTickets(ws)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +89,8 @@ type RetroReport struct {
 
 // Retro summarises the whole ledger plus bus decisions and surfaces KB
 // learnings as SSOT-promotion candidates.
-func Retro(ws *config.Workspace) (*RetroReport, error) {
-	entries, err := store.NewLedger(ws.Layout).Recent(0)
+func (s Service) Retro(ws *config.Workspace) (*RetroReport, error) {
+	entries, err := s.Ledger.Recent(0)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +108,12 @@ func Retro(ws *config.Workspace) (*RetroReport, error) {
 		}
 	}
 	// Decisions recorded on the bus.
-	b := bus.New(ws.Layout)
-	if decs, err := b.Search(bus.SearchOpts{Type: bus.TypeDecision, Limit: 100}); err == nil {
+	b := s.Bus
+	if decs, err := b.Search(model.SearchOpts{Type: model.MsgDecision, Limit: 100}); err == nil {
 		r.Decisions = len(decs)
 	}
 	// KB learnings are candidates to promote into SSOT.
-	if entriesKB, err := store.NewKB(ws.Layout).List(); err == nil {
+	if entriesKB, err := s.KB.List(); err == nil {
 		for _, e := range entriesKB {
 			if e.Type == model.KBLearning {
 				r.PromotionCands = append(r.PromotionCands, e)
@@ -129,11 +137,10 @@ func Retro(ws *config.Workspace) (*RetroReport, error) {
 
 // Demo lists work in terminal (done-like) lanes — the showcase for a sprint
 // review / demo. Returns a report and the tickets shown.
-func Demo(ws *config.Workspace) (string, []model.Ticket, error) {
-	board := store.NewBoard(ws.Layout)
+func (s Service) Demo(ws *config.Workspace) (string, []model.Ticket, error) {
 	var done []model.Ticket
 	for _, id := range terminalLaneIDs(ws) {
-		ts, err := board.ListLane(id)
+		ts, err := s.Board.ListLane(id)
 		if err != nil {
 			return "", nil, err
 		}
@@ -166,10 +173,9 @@ type GroomItem struct {
 
 // Grooming scans the entry (backlog) lane for under-specified tickets — the
 // backlog refinement ritual: flag missing role/priority/acceptance.
-func Grooming(ws *config.Workspace) (string, []GroomItem, error) {
-	board := store.NewBoard(ws.Layout)
+func (s Service) Grooming(ws *config.Workspace) (string, []GroomItem, error) {
 	lane := entryLane(ws)
-	tickets, err := board.ListLane(lane)
+	tickets, err := s.Board.ListLane(lane)
 	if err != nil {
 		return "", nil, err
 	}
@@ -228,14 +234,13 @@ func terminalLaneIDs(ws *config.Workspace) []string {
 	return out
 }
 
-func blockedTickets(ws *config.Workspace) ([]model.Ticket, error) {
-	board := store.NewBoard(ws.Layout)
+func (s Service) blockedTickets(ws *config.Workspace) ([]model.Ticket, error) {
 	var out []model.Ticket
 	for _, l := range ws.Workflow.Lanes {
 		if !l.Side && l.ID != "blocked" {
 			continue
 		}
-		ts, err := board.ListLane(l.ID)
+		ts, err := s.Board.ListLane(l.ID)
 		if err != nil {
 			return nil, err
 		}

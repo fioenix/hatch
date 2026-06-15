@@ -3,19 +3,12 @@ package bus
 import (
 	"sort"
 	"strings"
+
+	"github.com/fioenix/overclaud/hatch/internal/model"
 )
 
-// SearchOpts filters a bus query. Empty fields are ignored. This is the
-// token-efficient way an agent loads *relevant* conversation into context
-// (L2 on-demand) instead of reading every message in every channel.
-type SearchOpts struct {
-	Query    string   // case-insensitive substring over body + sender
-	Channel  string   // restrict to one channel
-	From     string   // restrict to a sender
-	Type     string   // restrict to a message type
-	Channels []string // restrict to a set of channels (e.g. an agent's subscriptions)
-	Limit    int      // max results, newest first (0 ⇒ 20)
-}
+// SearchOpts is the domain query type, re-exported for terse call sites.
+type SearchOpts = model.SearchOpts
 
 // Search returns matching messages newest-first, capped at Limit.
 func (b *Bus) Search(o SearchOpts) ([]Message, error) {

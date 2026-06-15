@@ -14,29 +14,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fioenix/overclaud/hatch/internal/model"
 	"github.com/fioenix/overclaud/hatch/internal/paths"
 )
 
-// Message types.
+// Message types (aliases of the domain constants).
 const (
-	TypeMsg      = "msg"      // a statement / DM / mention
-	TypeAsk      = "ask"      // a question expecting a reply
-	TypeReply    = "reply"    // a reply to an ask
-	TypeDecision = "decision" // a recorded decision / consensus
+	TypeMsg      = model.MsgText
+	TypeAsk      = model.MsgAsk
+	TypeReply    = model.MsgReply
+	TypeDecision = model.MsgDecision
 )
 
-// Message is one turn in a channel. A reply (InReplyTo set) forms a thread
-// within that channel, Slack-style.
-type Message struct {
-	ID        string
-	Channel   string // channel / DM / conversation id (file). "#design", "dm-a-b", "T-123"
-	TS        string
-	From      string
-	To        []string // agent ids, role ids, "#channel", or "*"/"all"
-	Type      string
-	InReplyTo string // root message id when replying inside a thread
-	Body      string
-}
+// Message and SearchOpts are the communication domain types; bus re-exports
+// them as aliases so call sites stay terse while the canonical types live in
+// the domain (model), letting ports return them without coupling to this
+// package.
+type Message = model.Message
 
 // Bus reads and writes conversation threads under .hatch/bus/.
 type Bus struct{ L paths.Layout }

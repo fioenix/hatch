@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
-	"github.com/fioenix/overclaud/hatch/internal/ceremony"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/orchestrator"
 )
@@ -34,7 +33,7 @@ func newDemoCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, _, err := ceremony.Demo(ws)
+			report, _, err := ceremonyService(ws).Demo(ws)
 			if err != nil {
 				return err
 			}
@@ -63,7 +62,7 @@ func newGroomingCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			report, items, err := ceremony.Grooming(ws)
+			report, items, err := ceremonyService(ws).Grooming(ws)
 			if err != nil {
 				return err
 			}
@@ -88,7 +87,7 @@ func newStandupCeremonyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rep, err := ceremony.Standup(ws, days)
+			rep, err := ceremonyService(ws).Standup(ws, days)
 			if err != nil {
 				return err
 			}
@@ -121,7 +120,7 @@ func newRetroCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rep, err := ceremony.Retro(ws)
+			rep, err := ceremonyService(ws).Retro(ws)
 			if err != nil {
 				return err
 			}

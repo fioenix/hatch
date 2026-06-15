@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
-	"github.com/fioenix/overclaud/hatch/internal/ceremony"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
 
@@ -24,7 +23,7 @@ func newTickCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 
 			// 1. Standup digest → #standup.
-			sr, err := ceremony.Standup(ws, 1)
+			sr, err := ceremonyService(ws).Standup(ws, 1)
 			if err != nil {
 				return err
 			}

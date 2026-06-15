@@ -24,11 +24,17 @@ type Ledger interface {
 
 // Bus is the communication port the use-case layer needs: post a message,
 // build a per-agent catch-up (inbox + query-scoped recall) as formatted lines,
-// and advance an agent's read cursor.
+// advance a read cursor, and search the conversation history.
 type Bus interface {
 	Notify(channel, from string, to []string, body string) error
 	CatchUp(agent string, roles []string, query string, limit int) (inbox []string, recall []string)
 	MarkRead(agent string) error
+	Search(o model.SearchOpts) ([]model.Message, error)
+}
+
+// KB is the knowledge-base port the use-case layer reads from.
+type KB interface {
+	List() ([]model.KBEntry, error)
 }
 
 // OnCall reports who currently holds the pager.

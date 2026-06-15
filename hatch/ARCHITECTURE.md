@@ -31,7 +31,7 @@ Dependencies point **inward**. Inner layers never import outer ones.
 
 | Layer | Packages | Rule |
 |---|---|---|
-| **Domain** | `internal/model` | Pure data + invariants. Imports nothing from the project. |
+| **Domain** | `internal/model` | Pure data + invariants (tickets, registry, workflow, ledger entries, **messages**). Imports nothing from the project. |
 | **Use cases** | `internal/wf`, `compile`, `metrics`, `ceremony`, `orchestrator`, `docs`, `config` | Orchestrate the domain via **ports**; no direct knowledge of *how* IO happens. |
 | **Ports** | `internal/port` (`Board`, `Ledger`, `Bus`, `OnCall`) + `gate.Runner`, `orchestrator.Adapter` | Interfaces the use-case layer depends on; adapters satisfy them. |
 | **Adapters** | `internal/store` (filesystem board/ledger/KB), `bus` (filesystem messaging), `gate.ShellRunner` (exec), `orchestrator` per-kind agent adapters + `mock`, `mux` (tmux/zellij), `presence`, `oncall`, `mdfront`, `paths` | Implement ports / wrap the outside world. |
@@ -53,19 +53,22 @@ them, asserted at compile time (`var _ port.Board = (*store.Board)(nil)`).
   (Claude/Codex/Gemini/Kiro + `mock` test adapter) — textbook ports & adapters.
 - **`gate.Runner`** — gate command execution sits behind a port; `ShellRunner`
   is the production adapter, fakes are used in tests (no real `sh`).
-- **`metrics.Compute(port.Ledger)`** — reads through the ledger port.
+- **`metrics.Compute(port.Ledger)`** and **`ceremony.Service{Board, Ledger,
+  Bus, KB}`** — the reporting use cases read through ports too. To make this
+  clean, the messaging value types (`Message`, `SearchOpts`, message kinds) live
+  in the **domain** (`model`); `bus` re-exports them as aliases for terse call
+  sites, and `port.Bus.Search` / `port.KB.List` return domain types — so no
+  adapter type ever leaks into a port.
 
-### The command/projection boundary (a deliberate Lean line)
+### Every use case is port-based
 
-Use cases that **mutate** state or **spawn** agents go through ports
-(`wf`, `orchestrator`, `gate`). **Read-only reporting projections** that
-aggregate several sources at once (`ceremony`, plus the `report`/`cost`/`budget`
-CLI views) are composed at the root and read concrete adapters directly. Forcing
-them through ports would require leaking the messaging value types (`bus.Message`)
-into a port or relocating domain types — ceremony alone reads ledger **and**
-board **and** bus decisions **and** KB. That is abstraction for its own sake; we
-draw the line at the command path, where decoupling and testability actually pay
-off. If a second backend ever appears, the projections move behind ports then.
+The whole use-case layer — `wf`, `orchestrator`, `gate`, `metrics`,
+`ceremony` — depends only on `internal/port` (+ `model`/`config`). None import
+`internal/store` or `internal/bus`. Concrete adapters are wired exclusively at
+the composition root (`internal/cli` helpers `engineFor`, `orch`,
+`ceremonyService`; the TUI builds them inline). The remaining direct adapter use
+in `cli`/`tui` is the composition root itself, which is expected to know
+concretes.
 
 ## Where we stay Lean (intentional non-ports)
 
@@ -73,9 +76,9 @@ We do **not** hide these behind interfaces, because there is one real
 implementation and swapping it is a non-goal:
 
 - The filesystem layout (`paths`) and markdown encoding (`mdfront`) — the
-  storage format is the product.
-- `bus`, `presence`, `oncall` — small filesystem adapters used directly by
-  use-case services acting as coordinators.
+  storage format is the product; the adapters (`store`, `bus`) are built on them.
+- `presence` is read by the CLI's capacity-aware assignment (`pickAgent`), which
+  is part of the composition root — no port needed there.
 
 If a second backend ever appears (e.g. a server-backed store), the seams above
 (`store` behind `wf.Board`/`wf.Ledger`) are where a new adapter slots in without
