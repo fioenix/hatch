@@ -11,6 +11,7 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/gate"
 	"github.com/fioenix/overclaud/hatch/internal/model"
+	"github.com/fioenix/overclaud/hatch/internal/port"
 )
 
 // MoveOptions parameterise a transition.
@@ -34,7 +35,8 @@ type Result struct {
 }
 
 // Move validates and performs a transition for ticketID.
-func Move(ws *config.Workspace, b Board, lg Ledger, ticketID string, opt MoveOptions) (*Result, error) {
+func (e Engine) Move(ws *config.Workspace, ticketID string, opt MoveOptions) (*Result, error) {
+	b, lg := e.Board, e.Ledger
 	if strings.TrimSpace(opt.Why) == "" {
 		return nil, fmt.Errorf("a reason (--why) is required")
 	}
@@ -88,7 +90,7 @@ func Move(ws *config.Workspace, b Board, lg Ledger, ticketID string, opt MoveOpt
 			}
 			if !o.Human && !o.Passed {
 				_ = lg.Append(gateEntry(opt, t, from, "failed", "gate "+o.Name+" failed: "+o.Detail))
-				maybeEscalate(ws, b, lg, t.ID)
+				e.maybeEscalate(ws, t.ID)
 				return nil, fmt.Errorf("gate %q failed: %s", o.Name, o.Detail)
 			}
 		}
@@ -147,7 +149,7 @@ func Move(ws *config.Workspace, b Board, lg Ledger, ticketID string, opt MoveOpt
 	return &Result{Ticket: t, From: from, To: opt.To, Action: action, Outcomes: outcomes}, nil
 }
 
-func checkDependencies(ws *config.Workspace, b Board, t model.Ticket) error {
+func checkDependencies(ws *config.Workspace, b port.Board, t model.Ticket) error {
 	if len(t.DependsOn) == 0 {
 		return nil
 	}

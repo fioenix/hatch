@@ -57,7 +57,7 @@ func newPairCmd() *cobra.Command {
 				if why == "" {
 					why = "pairing claim"
 				}
-				if _, err := wf.Move(ws, b, store.NewLedger(ws.Layout), t.ID, wf.MoveOptions{
+				if _, err := engineFor(ws).Move(ws, t.ID, wf.MoveOptions{
 					To: to, ByRole: t.Role, Agent: drv.ID, Why: why,
 				}); err != nil {
 					return err

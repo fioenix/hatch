@@ -185,7 +185,7 @@ func newTicketClaimCmd() *cobra.Command {
 			if why == "" {
 				why = "claim by " + agent
 			}
-			res, err := wf.Move(ws, b, store.NewLedger(ws.Layout), args[0], wf.MoveOptions{
+			res, err := engineFor(ws).Move(ws, args[0], wf.MoveOptions{
 				To: to, ByRole: role, Agent: agent, Why: why,
 			})
 			if err != nil {
@@ -226,7 +226,7 @@ func newTicketMoveCmd() *cobra.Command {
 			if to == "" {
 				return fmt.Errorf("--to is required")
 			}
-			res, err := wf.Move(ws, store.NewBoard(ws.Layout), store.NewLedger(ws.Layout), args[0], wf.MoveOptions{
+			res, err := engineFor(ws).Move(ws, args[0], wf.MoveOptions{
 				To: to, ByRole: by, Agent: agent, Why: why, Handoff: handoff,
 				HumanApproved: approve, SkipGates: skipGates,
 			})

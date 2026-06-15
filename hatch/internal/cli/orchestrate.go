@@ -118,7 +118,7 @@ func newRunCmd() *cobra.Command {
 				if to == "" {
 					return fmt.Errorf("no claim transition from %q", t.Lane)
 				}
-				if _, err := wf.Move(ws, b, store.NewLedger(ws.Layout), t.ID, wf.MoveOptions{
+				if _, err := engineFor(ws).Move(ws, t.ID, wf.MoveOptions{
 					To: to, ByRole: t.Role, Agent: agent.ID, Why: "orchestrator claim",
 				}); err != nil {
 					return err
@@ -262,7 +262,7 @@ func dispatchBacklog(ws *config.Workspace, out io.Writer, opt dispatchOpts) (int
 			continue
 		}
 		to := claimTarget(ws, t.Lane)
-		if _, err := wf.Move(ws, b, store.NewLedger(ws.Layout), t.ID, wf.MoveOptions{
+		if _, err := engineFor(ws).Move(ws, t.ID, wf.MoveOptions{
 			To: to, ByRole: t.Role, Agent: agent.ID, Why: "watch claim",
 		}); err != nil {
 			fmt.Fprintf(out, "  claim failed: %v\n", err)

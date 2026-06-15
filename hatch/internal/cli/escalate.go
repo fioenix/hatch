@@ -4,9 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/fioenix/overclaud/hatch/internal/store"
-	"github.com/fioenix/overclaud/hatch/internal/wf"
 )
 
 func newEscalateCmd() *cobra.Command {
@@ -23,10 +20,11 @@ func newEscalateCmd() *cobra.Command {
 			if why == "" {
 				return fmt.Errorf("--why is required")
 			}
-			if err := wf.Escalate(ws, store.NewBoard(ws.Layout), store.NewLedger(ws.Layout), args[0], from, why); err != nil {
+			eng := engineFor(ws)
+			if err := eng.Escalate(ws, args[0], from, why); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "escalated %s → %s\n", args[0], wf.EscalateTarget(ws))
+			fmt.Fprintf(cmd.OutOrStdout(), "escalated %s → %s\n", args[0], eng.EscalateTarget(ws))
 			return nil
 		},
 	}
