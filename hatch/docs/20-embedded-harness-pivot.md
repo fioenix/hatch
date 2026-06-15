@@ -63,8 +63,36 @@ Mỗi agent chạy MCP server với danh tính của nó (`hatch mcp --as claude
 5. **thread-as-task**: quy ước status + board stats từ thread; workflow engine thành tùy chọn.
 6. Giữ KB/ledger/clean-arch.
 
-## Quyết định cần chốt
-Mức độ "dọn" phần operator (orchestrator spawn · board control · workflow engine · ceremonies · cost/presence/oncall):
-- **(A) Lean pivot:** xóa hẳn phần tự-lái; Hatch = chat/comms+backlog qua MCP + KB + ledger + chat/board read-only. Gọn, đúng tầm nhìn.
-- **(B) Optional ops mode:** giữ phần tự-lái sau một namespace `hatch ops …` cho ai muốn Hatch chủ động chạy; mặc định là embedded chat.
-- **(C) Giữ tất cả:** chỉ thêm MCP + chat read-only lên trên; phần cũ vẫn còn (rủi ro: lẫn lộn hai mô hình).
+## Quyết định đã chốt (2026-06-15)
+
+- **Tích hợp: MCP server + Claude plugin.** `hatch mcp` (stdio) phơi tool chat/KB cho mọi agent (Claude/Codex/agy/Kiro); thêm gói **plugin Claude Code** (đăng ký MCP + skill etiquette + slash) cho DX. compile đăng ký MCP vào config từng agent.
+- **Lean pivot ở RUNTIME.** Bỏ phần Hatch tự-lái: `run/plan/watch/tick`, `pickAgent`/capacity/presence, `--mux`, board-control, **Go workflow-engine enforce lane/gate/transition**, pair/mob/convene-dạng-spawn, cost/oncall-as-runtime. Hatch không spawn, không enforce bằng code.
+- **Workflow + phân vai = PROTOCOL được COMPILE, không phải engine.** `registry.yaml` (ai giữ vai gì) + `workflow.yaml` (quy trình agile: scrum/kanban/…) + charter + roles + DoD **vẫn là SSOT**, nhưng compile biến chúng thành **văn bản hành vi** tiêm vào `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`/`.kiro`. Agent đọc và *tự* tuân theo qua chat (mở thread, phân vai, gate = self-checklist), Hatch không cưỡng chế.
+- **Agent đầu tiên = orchestrator + đa vai.** Agent user mở trước (vd Claude Code) mặc định là **Conductor/orchestrator** (chắc chắn) và **có thể kiêm các vai khác** (architect/reviewer…). Việc này khai trong registry + tiêm qua compile. Các agent khác tham gia async qua chat khi chúng đang chạy.
+
+### Hệ quả: "agile workflow inject ở đâu?" → vào instruction surface
+
+```
+.hatch/ (SSOT)                      hatch compile (đổi mục đích)
+  charter.md (mission)        ─┐
+  roles/*.md (vai + ranh giới) ├─►  CLAUDE.md  (lead: "Bạn là Conductor; chạy scrum;
+  registry.yaml (ai giữ vai)   │       mở 1 thread/task; phân vai; @tag; gate=DoD;
+  workflow.yaml (agile process)│       dùng Hatch MCP chat …")  + đăng ký MCP server
+  protocol/DoD                ─┘    AGENTS.md / GEMINI.md / .kiro  (tương tự theo vai)
+                                    + .mcp.json / config.toml / .kiro/settings/mcp.json
+```
+
+Workflow templates (scrum/kanban/spec-first/…) **vẫn giữ**, nhưng từ "cấu hình cho engine" → **mô tả quy trình bằng prose** mà orchestrator-agent tuân theo. Gate (`make test`…) → mục trong **Definition-of-Done** mà agent tự chạy/tự kiểm, không phải Hatch chạy.
+
+### Thread = task (chat = backlog)
+- Agent mở **thread/topic cho mỗi task** qua MCP; brief tiến độ + kết quả vào thread; @tag để nhờ; tag-all cho việc chung.
+- Trạng thái task suy ra từ hội thoại (post type `done`/`block`/`decision`), không lane-engine.
+- `hatch board` = stats read-only trên thread + ledger; `hatch chat` = xem hội thoại (→ pixel viz sau).
+
+### Lộ trình implement (đã chốt)
+1. **`hatch mcp`** (stdio MCP server) trên bus/KB — tool: open_thread/post/reply/read/inbox/search/threads + kb.* + whoami(`--as`). *(lõi mới)*
+2. **compile đổi mục đích**: sinh đăng ký MCP per-agent + tiêm protocol (charter+roles+workflow-prose+DoD+chat-etiquette) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro. Lead agent nhận thêm khối "orchestrator".
+3. **Claude plugin**: gói MCP + skill + slash (`/hatch`…).
+4. **board/chat read-only**: bỏ control khỏi board.
+5. **Prune runtime operator**: gỡ orchestrator-spawn/pickAgent/mux/workflow-engine/ceremonies-runtime/cost/presence/oncall (hoặc archive). Pair/mob/convene → mô tả trong protocol.
+6. Giữ: bus · KB · ledger · clean arch · compile · registry/workflow/charter/roles/DoD as SSOT.
