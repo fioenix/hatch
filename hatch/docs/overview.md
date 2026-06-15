@@ -32,7 +32,7 @@ Legend: **✓** đã implement (code + test) · **◇** mới thiết kế (docs
 │  COLLAB        ✓  pairing(driver/navigator) · mob(driver xoay vòng)                │
 │  ỨNG CỨU       ✓  escalation · on-call rotation · incident workflow               │
 │  CAPACITY      ✓  presence(available/busy/paused/offline) → phân việc theo tải     │
-│  OBSERVE       ✓  transcript mỗi run + hatch logs -f · TUI board (board+live+feed) │
+│  OBSERVE       ✓  transcript + hatch logs -f · TUI board(board+live+feed) · chat   │
 │                ✓  --mux=tmux|zellij (mỗi run một pane thật)                         │
 │  DOCS/KB       ✓  doc templates (new/lint) · Obsidian KB (link/backlinks/graph)    │
 │  ── lớp QUẢN TRỊ (Founder/CEO/CTO) ──────────────────────────────────────────────  │
@@ -53,7 +53,7 @@ BOARD/WORK     ticket new|claim|move|show|extdep · status · standup · gate
 ORCH/OBSERVE   run [--claim --worktree --mux=tmux|zellij] · plan · watch [--parallel N]
                tick · logs [-f] · board (TUI)
 KNOWLEDGE      kb add|query|index|link|backlinks|graph|open · doc types|new|lint
-COMMUNICATION  msg · inbox · thread · channel ls|show|join|leave|members · search
+COMMUNICATION  msg · inbox · thread · channel ls|show|join|leave|members · search · chat(TUI)
 DIALOGUE       ask · convene [--decider] · escalate
 COLLAB         pair · mob
 CEREMONY       ceremony standup|retro|planning|demo|grooming

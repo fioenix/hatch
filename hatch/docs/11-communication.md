@@ -93,6 +93,10 @@ hatch convene --topic "Thiết kế export API" --agents claude-code,codex,kiro 
 ```
 Orchestrator chạy vòng luân phiên có giới hạn: mỗi vòng, mỗi agent thấy diễn biến thread tới giờ và đóng góp lượt của mình theo **vai** của nó. Agent mở đầu bằng `DECISION:` để chốt (message thành type `decision`). Đây là mô phỏng một cuộc họp/đánh giá thiết kế đầy đủ — kết quả nằm trong thread, sẵn sàng đề bạt sang KB.
 
+## TUI: `hatch chat`
+
+Xem/giao tiếp kiểu Slack ngay trong terminal: cột **CHANNELS** (chọn channel/DM) + khung **messages** (auto-refresh 1s, cuộn được), và **soạn–gửi** (`i` để nhập, Enter gửi — `@mention` tự tag). Mặc định gửi với danh tính `human:operator`, đổi bằng `--as`. Bổ trợ cho `hatch board` (board+live+ledger) — đây là cửa sổ "Slack" của đội.
+
 ## Vì sao mạnh hơn task-only orchestration
 - **Hỏi để gỡ vướng ngay** thay vì block ticket chờ vòng sau.
 - **Tranh luận thiết kế** (convene) cho ra quyết định tốt hơn một agent đơn lẻ.

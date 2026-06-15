@@ -114,7 +114,8 @@ bin/hatch kb query export
 bin/hatch run T-001 --claim --dry-run   # build invocation; bỏ --dry-run để chạy thật
 bin/hatch plan --dry-run                 # spawn Conductor bẻ việc
 bin/hatch watch --dry-run --max 3        # gán + chạy backlog (tôn trọng WIP)
-bin/hatch board                          # TUI dashboard
+bin/hatch board                          # TUI dashboard (board + live output + activity)
+bin/hatch chat                           # TUI giao tiếp kiểu Slack (channels + messages + soạn)
 # Giao tiếp trực tiếp giữa agent (Slack-style — docs/11)
 bin/hatch msg --from codex --to '#design,reviewer' --channel '#design' "Streaming hay buffer?"
 bin/hatch inbox claude-code --mark       # message gửi tới mình (id + vai + #channel + *)

@@ -36,6 +36,7 @@ func NewRoot() *cobra.Command {
 		newPlanCmd(),
 		newWatchCmd(),
 		newBoardCmd(),
+		newChatCmd(),
 		newSyncCmd(),
 		newHookCmd(),
 		newMsgCmd(),
