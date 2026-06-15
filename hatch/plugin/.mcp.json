@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hatch": {
+      "command": "hatch",
+      "args": ["mcp"]
+    }
+  }
+}

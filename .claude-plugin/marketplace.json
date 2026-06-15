@@ -1,0 +1,14 @@
+{
+  "name": "hatch",
+  "owner": {
+    "name": "Finolabs",
+    "url": "https://github.com/fioenix/overclaud"
+  },
+  "plugins": [
+    {
+      "name": "hatch",
+      "source": "./hatch/plugin",
+      "description": "Embedded harness for a coding-agent squad: shared chat (= comms + backlog) and a knowledge base over MCP."
+    }
+  ]
+}
