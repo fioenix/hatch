@@ -37,23 +37,6 @@ func (codexAdapter) Build(req RunRequest) Invocation {
 	return Invocation{Args: args, Headless: true}
 }
 
-// geminiAdapter drives Gemini CLI headlessly: `gemini -p`.
-type geminiAdapter struct{}
-
-func (geminiAdapter) Kind() string { return "gemini" }
-func (geminiAdapter) Build(req RunRequest) Invocation {
-	mode := req.Agent.Approval
-	if mode == "" {
-		mode = "auto_edit"
-	}
-	args := []string{program(req.Agent, "gemini"), "-p", req.Prompt,
-		"--approval-mode", mode, "--output-format", "json"}
-	if req.Agent.Model != "" {
-		args = append(args, "-m", req.Agent.Model)
-	}
-	return Invocation{Args: args, Headless: true}
-}
-
 // agyAdapter drives Google's Antigravity CLI (`agy`, successor to Gemini CLI)
 // headlessly: `agy -p <prompt>`. Auth is OAuth/OS-keyring (interactive `agy`
 // login; no API-key env). It reads GEMINI.md / AGENTS.md for project context.

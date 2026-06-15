@@ -50,7 +50,7 @@ them, asserted at compile time (`var _ port.Board = (*store.Board)(nil)`).
   the concrete adapters.
 - **`orchestrator.Orchestrator`** — holds `port.Ledger` + `port.Bus`; `Run`/
   `Execute` are methods. The agent boundary itself is `orchestrator.Adapter`
-  (Claude/Codex/Gemini/Kiro + `mock` test adapter) — textbook ports & adapters.
+  (Claude/Codex/agy/Kiro + `mock` test adapter) — textbook ports & adapters.
 - **`gate.Runner`** — gate command execution sits behind a port; `ShellRunner`
   is the production adapter, fakes are used in tests (no real `sh`).
 - **`metrics.Compute(port.Ledger)`** and **`ceremony.Service{Board, Ledger,

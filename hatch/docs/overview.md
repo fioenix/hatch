@@ -14,7 +14,7 @@ Legend: **✓** đã implement (code + test) · **◇** mới thiết kế (docs
 │  SURFACES  ✓  CLAUDE.md · AGENTS.md · GEMINI.md · .kiro/steering   (L0+L1+con trỏ) │
 │        │  nạp instruction native                                                   │
 │        ▼                                                                           │
-│  AGENTS  ✓  claude · codex · gemini · kiro      (mỗi con 1 process, KHÔNG chung RAM)│
+│  AGENTS  ✓  claude · codex · agy · kiro      (mỗi con 1 process, KHÔNG chung RAM)│
 │     ▲   │                                                                          │
 │     │   │ claim/move ──►  WORKFLOW ENGINE ✓  (transition · gate · no-self-review · │
 │     │   │                 WIP · deps · auto-escalate)                              │

@@ -10,7 +10,7 @@ Cài cái nào bạn dùng (xem [10-agent-adapters](10-agent-adapters.md)):
 - **Kiro** — `kiro-cli` ([kiro.dev](https://kiro.dev))
 
 ## 2. Đặt `kind` thật trong registry
-Trong `.hatch/registry.yaml`, đổi `kind: mock` về `claude|codex|gemini|kiro`, khai thêm:
+Trong `.hatch/registry.yaml`, đổi `kind: mock` về `claude|codex|agy|kiro`, khai thêm:
 ```yaml
 agents:
   - id: codex

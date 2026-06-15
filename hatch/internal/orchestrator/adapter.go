@@ -48,7 +48,6 @@ func program(a model.Agent, def string) string {
 var adapters = map[string]Adapter{
 	"claude":      claudeAdapter{},
 	"codex":       codexAdapter{},
-	"gemini":      geminiAdapter{},
 	"agy":         agyAdapter{},
 	"kiro":        kiroAdapter{},
 	"antigravity": manualAdapter{kind: "antigravity", reason: "Antigravity is IDE-driven; no confirmed headless CLI"},

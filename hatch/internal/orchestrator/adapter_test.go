@@ -36,10 +36,14 @@ func TestCodexDefaultsSandbox(t *testing.T) {
 	}
 }
 
-func TestGeminiAndKiro(t *testing.T) {
-	g := strings.Join(build("gemini", nil).Args, " ")
-	if !strings.Contains(g, "gemini -p") || !strings.Contains(g, "--approval-mode auto_edit") {
-		t.Errorf("gemini invocation wrong: %q", g)
+func TestAgyAndKiro(t *testing.T) {
+	a := strings.Join(build("agy", nil).Args, " ")
+	if !strings.Contains(a, "agy -p") || strings.Contains(a, "--output-format") {
+		t.Errorf("agy invocation wrong: %q", a)
+	}
+	y := strings.Join(build("agy", func(ag *model.Agent) { ag.Approval = "yolo" }).Args, " ")
+	if !strings.Contains(y, "--dangerously-skip-permissions") {
+		t.Errorf("agy yolo→--dangerously-skip-permissions missing: %q", y)
 	}
 	k := build("kiro", nil)
 	if !strings.Contains(strings.Join(k.Args, " "), "kiro-cli chat --no-interactive") {

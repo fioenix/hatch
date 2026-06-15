@@ -4,7 +4,7 @@ package model
 // to. Capabilities and the adapter that drives it are declared here.
 type Agent struct {
 	ID       string   `yaml:"id"`
-	Kind     string   `yaml:"kind"`               // adapter key: claude | codex | gemini | kiro | shell | manual
+	Kind     string   `yaml:"kind"`               // adapter key: claude | codex | agy | kiro | mock | manual
 	Roles    []string `yaml:"roles"`              // role ids this agent may hold
 	Cmd      string   `yaml:"cmd,omitempty"`      // executable name (defaults per kind)
 	Model    string   `yaml:"model,omitempty"`    // model override passed to the adapter

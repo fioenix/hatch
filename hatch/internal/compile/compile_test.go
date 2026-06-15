@@ -27,7 +27,7 @@ func TestRunProducesSurfaces(t *testing.T) {
 	if len(warnings) != 0 {
 		t.Fatalf("unexpected warnings: %v", warnings)
 	}
-	// default roster touches claude, codex, gemini, kiro → 4 surfaces.
+	// default roster touches claude, codex, agy, kiro → 4 surfaces.
 	if len(res.Bundles) != 4 {
 		t.Fatalf("expected 4 surfaces, got %d", len(res.Bundles))
 	}

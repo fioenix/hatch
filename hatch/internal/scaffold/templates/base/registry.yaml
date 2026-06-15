@@ -40,7 +40,7 @@ agents:
     roles: [architect, implementer]
     wip: 1
   - id: agy
-    kind: agy           # Google Antigravity CLI (kế nhiệm gemini); dùng `kind: gemini` nếu vẫn xài Gemini CLI cũ
+    kind: agy           # Google Antigravity CLI (`agy`, kế nhiệm Gemini CLI). Auth: chạy `agy` để login (OAuth)
     roles: [implementer, tech-writer]
     wip: 1
 

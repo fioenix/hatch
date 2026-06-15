@@ -127,7 +127,7 @@ bin/hatch ceremony standup               # digest theo agent + blockers → #sta
 bin/hatch ceremony retro --write         # tổng kết chu kỳ + ứng viên đề bạt KB→SSOT
 bin/hatch escalate T-001 --why "kẹt gate 2 lần"   # gọi senior/on-call (auto khi gate fail ≥2)
 bin/hatch pair T-001 --driver codex --navigator claude-code --rounds 3   # pair programming
-bin/hatch mob T-001 --agents codex,claude-code,gemini    # mob (driver xoay vòng)
+bin/hatch mob T-001 --agents codex,claude-code,agy    # mob (driver xoay vòng)
 bin/hatch ceremony demo · grooming       # sprint review · backlog refinement
 bin/hatch presence set kiro --status offline --note PTO  # availability → phân việc theo capacity
 bin/hatch oncall set --rotation claude-code,codex        # lịch trực; escalation nhắm người trực
@@ -135,7 +135,7 @@ bin/hatch oncall set --rotation claude-code,codex        # lịch trực; escala
 
 ## Trạng thái implement
 
-- **Phase 1+2 — xong:** model + filesystem store, `init` (scaffold + 4 workflow template), compiler đa surface (Claude/Codex/Gemini/Kiro) + manifest stale-detection, workflow engine (transition + gate + no-self-review + dependency), ledger append-only, Knowledge Base, các lệnh `status/standup/validate/gate/ticket/kb`.
+- **Phase 1+2 — xong:** model + filesystem store, `init` (scaffold + 4 workflow template), compiler đa surface (Claude/Codex/agy/Kiro) + manifest stale-detection, workflow engine (transition + gate + no-self-review + dependency), ledger append-only, Knowledge Base, các lệnh `status/standup/validate/gate/ticket/kb`.
 - **Phase 3 — xong (cơ chế):** orchestrator + adapter cho từng agent (`hatch run`/`plan`/`watch`) dựng invocation headless đúng theo [adapters](docs/10-agent-adapters.md), worktree isolation, TUI dashboard (`hatch board`). Adapter `kiro`/`antigravity`/`manual` rơi về handoff khi không có headless. `--dry-run` cho phép kiểm tra invocation mà không cần cài agent.
 
 Có unit + integration test, CI, Makefile. Mã nguồn: `cmd/hatch` + `internal/`. Thiết kế gốc trong `docs/`. Kiến trúc (Lean Hexagonal, ports & adapters): [ARCHITECTURE.md](ARCHITECTURE.md).

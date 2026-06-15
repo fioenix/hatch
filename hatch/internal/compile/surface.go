@@ -18,7 +18,7 @@ type Surface struct {
 var (
 	SurfaceClaude = Surface{"claude", "Claude Code — CLAUDE.md"}
 	SurfaceAgents = Surface{"agents", "AGENTS.md (Codex / Antigravity / Gemini-compat)"}
-	SurfaceGemini = Surface{"gemini", "Gemini CLI — GEMINI.md"}
+	SurfaceGemini = Surface{"gemini", "GEMINI.md (Antigravity / agy)"}
 	SurfaceKiro   = Surface{"kiro", "Kiro — .kiro/steering/"}
 )
 
@@ -30,7 +30,7 @@ func surfaceForKind(kind string) (Surface, bool) {
 		return SurfaceClaude, true
 	case "codex", "antigravity":
 		return SurfaceAgents, true
-	case "gemini", "agy":
+	case "agy":
 		return SurfaceGemini, true
 	case "kiro":
 		return SurfaceKiro, true

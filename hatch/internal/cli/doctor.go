@@ -19,19 +19,18 @@ import (
 var envForKind = map[string]string{
 	"claude": "ANTHROPIC_API_KEY",
 	"codex":  "OPENAI_API_KEY",
-	"gemini": "GEMINI_API_KEY",
 	"kiro":   "KIRO_API_KEY",
 }
 
 // defaultCmdForKind is the executable each kind drives.
 var defaultCmdForKind = map[string]string{
-	"claude": "claude", "codex": "codex", "gemini": "gemini",
+	"claude": "claude", "codex": "codex",
 	"agy": "agy", "kiro": "kiro-cli", "mock": "hatch-mock",
 }
 
 // defaultAuthCheck is a non-mutating, scriptable command (argv) per kind that
 // exits 0 when authenticated — verified from each CLI's docs (see
-// docs/10-agent-adapters.md). gemini (legacy) and agy have no such command.
+// docs/10-agent-adapters.md). agy has no such command (OAuth/keyring only).
 var defaultAuthCheck = map[string][]string{
 	"claude": {"auth", "status"},  // exit 0 if logged in, 1 if not (JSON)
 	"codex":  {"login", "status"}, // exit 0 if authed
@@ -39,12 +38,12 @@ var defaultAuthCheck = map[string][]string{
 }
 
 // authKinds are agent kinds that require authentication (vs mock/manual/shell).
-var authKinds = map[string]bool{"claude": true, "codex": true, "gemini": true, "agy": true, "kiro": true}
+var authKinds = map[string]bool{"claude": true, "codex": true, "agy": true, "kiro": true}
 
 // authStatus reports how an agent authenticates, WITHOUT touching credential
 // files (security): it honours an env key the user set, else runs the agent
 // CLI's own auth-check command, else — for CLIs with no scriptable check
-// (agy, gemini) — reports unknown rather than guessing.
+// (agy) — reports unknown rather than guessing.
 func authStatus(a model.Agent, bin string, cliPresent bool) string {
 	ev := envForKind[a.Kind]
 	if ev != "" && os.Getenv(ev) != "" {
