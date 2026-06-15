@@ -8,7 +8,16 @@ import (
 	"path/filepath"
 
 	"github.com/fioenix/overclaud/hatch/internal/paths"
+	"github.com/fioenix/overclaud/hatch/internal/port"
 )
+
+// Service is the port.OnCall adapter: it reports the current on-call agent.
+type Service struct{ L paths.Layout }
+
+var _ port.OnCall = Service{}
+
+// Current returns the agent currently on call ("" if no rotation is set).
+func (s Service) Current() string { return Load(s.L).Now() }
 
 // Rotation is the on-call schedule: an ordered list of agents and the index of
 // whoever currently holds the pager.
