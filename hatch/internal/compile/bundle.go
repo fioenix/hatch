@@ -18,7 +18,8 @@ type RoleContent struct {
 }
 
 // Bundle is everything needed to render a surface: L0 charter, the L1 roles
-// served on that surface, and the L2 pointers (not the content).
+// served on that surface, the L2 pointers (not the content), plus the protocol
+// the agent self-follows (workflow prose + chat etiquette + DoD).
 type Bundle struct {
 	Surface     Surface
 	Agents      []model.Agent // agents reading this surface
@@ -26,6 +27,10 @@ type Bundle struct {
 	Roles       []RoleContent // L1
 	ContextRefs []string      // L2 pointers (union of role refs)
 	Project     string
+
+	Workflow *model.Workflow // process, rendered as prose (not an engine)
+	Policy   model.Policy    // governance toggles surfaced into the DoD
+	Lead     *model.Agent    // set when this surface carries the orchestrator agent
 }
 
 // stripFrontmatter removes a leading `---`-fenced YAML block, returning the
@@ -54,6 +59,23 @@ func readRoleBody(l paths.Layout, role model.Role) string {
 	return stripFrontmatter(string(raw))
 }
 
+// leadAgent returns the squad's orchestrator: the first agent holding the
+// "conductor" role, falling back to the first agent in the roster. This is the
+// agent a user typically opens first; its surface gets the orchestrator block.
+func leadAgent(ws *config.Workspace) *model.Agent {
+	for i := range ws.Registry.Agents {
+		for _, r := range ws.Registry.Agents[i].Roles {
+			if r == "conductor" {
+				return &ws.Registry.Agents[i]
+			}
+		}
+	}
+	if len(ws.Registry.Agents) > 0 {
+		return &ws.Registry.Agents[0]
+	}
+	return nil
+}
+
 // buildBundle assembles the bundle for a surface given the role ids it serves.
 func buildBundle(ws *config.Workspace, surf Surface, agents []model.Agent, roleIDs []string) Bundle {
 	charter := ""
@@ -77,6 +99,17 @@ func buildBundle(ws *config.Workspace, surf Surface, agents []model.Agent, roleI
 			}
 		}
 	}
+	// The orchestrator block goes only on the surface that carries the lead.
+	var lead *model.Agent
+	if la := leadAgent(ws); la != nil {
+		for _, a := range agents {
+			if a.ID == la.ID {
+				lead = la
+				break
+			}
+		}
+	}
+
 	return Bundle{
 		Surface:     surf,
 		Agents:      agents,
@@ -84,5 +117,8 @@ func buildBundle(ws *config.Workspace, surf Surface, agents []model.Agent, roleI
 		Roles:       roles,
 		ContextRefs: refs,
 		Project:     ws.Registry.Project,
+		Workflow:    ws.Workflow,
+		Policy:      ws.Registry.Policy,
+		Lead:        lead,
 	}
 }

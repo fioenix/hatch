@@ -104,6 +104,14 @@ func Run(ws *config.Workspace) (*Result, []string, error) {
 		res.Bundles = append(res.Bundles, b)
 	}
 
+	// Register the Hatch MCP server with each agent so it can reach the shared
+	// chat + KB under its own identity (the embedded-harness integration).
+	mcpFiles, err := writeMCPConfigs(ws, repoRoot)
+	if err != nil {
+		return nil, warnings, err
+	}
+	res.Written = append(res.Written, mcpFiles...)
+
 	if err := m.Save(ws.Layout); err != nil {
 		return nil, warnings, err
 	}

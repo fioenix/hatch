@@ -2,7 +2,10 @@ package compile
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+
+	"github.com/fioenix/overclaud/hatch/internal/model"
 )
 
 // genHeader marks a file as compiler output that must not be hand-edited.
@@ -46,7 +49,7 @@ func Render(b Bundle) string {
 
 	// L1 — the roles this agent may hold.
 	w.WriteString("## Your roles (L1)\n\n")
-	w.WriteString("Bạn có thể giữ các vai dưới đây. **Vai hiện hành do ticket bạn claim quyết định** — đọc frontmatter `role` của ticket.\n\n")
+	w.WriteString("Bạn có thể giữ các vai dưới đây. **Vai hiện hành tùy task (thread) bạn nhận trong chat** — đọc thread để biết mình đang đóng vai gì.\n\n")
 	for _, rc := range b.Roles {
 		t := rc.Role.Title
 		if t == "" {
@@ -60,29 +63,173 @@ func Render(b Bundle) string {
 		}
 	}
 
-	// L2 — pointers only; the agent reads these on demand when it claims work.
+	// Orchestrator block — only on the lead agent's surface.
+	if b.Lead != nil {
+		renderOrchestrator(&w, b)
+	}
+
+	// Workflow as prose: the process the squad self-follows (not an engine).
+	renderWorkflow(&w, b)
+
+	// Chat protocol: how the agent reaches the squad through the Hatch MCP server.
+	renderChatProtocol(&w, b)
+
+	// Definition of Done: a self-check the agent runs before reporting done.
+	renderDoD(&w, b)
+
+	// L2 — pointers only; the agent reads these on demand when it takes a task.
 	w.WriteString("## Context map (L2 — đọc on-demand, KHÔNG nạp sẵn)\n\n")
-	w.WriteString("Khi claim ticket, đọc `context_refs` của ticket + các nguồn liên quan dưới đây. Tra Knowledge Base trước khi suy diễn lại.\n\n")
+	w.WriteString("Khi nhận một task (thread), đọc thread + `context_refs` liên quan dưới đây. Tra Knowledge Base (`kb_search`) trước khi suy diễn lại.\n\n")
 	if len(b.ContextRefs) > 0 {
 		for _, r := range b.ContextRefs {
 			fmt.Fprintf(&w, "- `.hatch/%s`\n", r)
 		}
 		w.WriteString("\n")
 	}
-	w.WriteString("- Board: `.hatch/board/<lane>/` — ticket bạn đang làm.\n")
-	w.WriteString("- Knowledge Base: `.hatch/kb/index.md` — quyết định & bài học chung.\n")
-	w.WriteString("- Protocol: `.hatch/protocol/` — claim/lock, handoff, DoD.\n\n")
-
-	// Operating rules shared by every surface.
-	w.WriteString("## Operating protocol\n\n")
-	w.WriteString("- Một ticket một branch; claim = `git mv` vào `in-progress/` + push ngay (push thắng = lock thắng).\n")
-	w.WriteString("- Mọi chuyển trạng thái để lại entry ledger (`why` bắt buộc) trong cùng commit.\n")
-	w.WriteString("- Không sửa file ngoài `context_refs` đã khai; mở rộng scope thì cập nhật ticket trước.\n")
-	w.WriteString("- Đổi assignee/role ⇒ ghi Handoff notes. Tri thức đáng giữ ⇒ ghi KB.\n")
+	w.WriteString("- Knowledge Base: tool `kb_search` (hoặc `.hatch/kb/index.md`) — quyết định & bài học chung.\n")
+	w.WriteString("- SSOT: `.hatch/{charter.md,roles/,registry.yaml,workflow.yaml}` — sửa rồi chạy `hatch compile`.\n\n")
 
 	out := w.String()
 	if !strings.HasSuffix(out, "\n") {
 		out += "\n"
 	}
 	return out
+}
+
+// chatTools is the tool surface the Hatch MCP server exposes (see mcpserver).
+const chatTools = "`whoami`, `chat_open`, `chat_post`, `chat_read`, `chat_inbox`, `chat_search`, `chat_channels`, `kb_add`, `kb_search`"
+
+// renderOrchestrator writes the lead agent's coordination duties. Hatch does
+// not drive anyone; this agent self-conducts through chat.
+func renderOrchestrator(w *strings.Builder, b Bundle) {
+	tmpl := "quy trình của squad"
+	if b.Workflow != nil && b.Workflow.Template != "" {
+		tmpl = b.Workflow.Template
+	}
+	fmt.Fprintf(w, "## Bạn là Conductor (orchestrator)\n\n")
+	fmt.Fprintf(w, "`%s` là agent user mở trước → bạn **mặc định là Conductor** và có thể kiêm các vai khác ở trên. Hatch KHÔNG điều phối thay bạn — bạn tự điều phối **qua chat**:\n\n", b.Lead.ID)
+	fmt.Fprintf(w, "- Chạy quy trình **%s** (mô tả ở mục Workflow). Chia việc thành các task; mỗi task mở **một thread** (`chat_open`).\n", tmpl)
+	w.WriteString("- Phân vai bằng **@tag** đúng agent/role trong thread; theo dõi `chat_inbox` để biết ai cần gì.\n")
+	w.WriteString("- Gate = **self-check DoD** (mục Definition of Done) — bạn yêu cầu và xác nhận, không có engine ép buộc.\n")
+	w.WriteString("- Khi bí/đụng quyết định lớn: mở thread + @tag các vai liên quan (hoặc @all) để chốt, ghi quyết định bằng `kb_add`.\n\n")
+}
+
+// renderWorkflow turns workflow.yaml into prose stages + who-does-what, so the
+// agent follows the process by reading, not via a Go state machine.
+func renderWorkflow(w *strings.Builder, b Bundle) {
+	wf := b.Workflow
+	if wf == nil || len(wf.Lanes) == 0 {
+		return
+	}
+	name := wf.Template
+	if name == "" {
+		name = "tùy biến"
+	}
+	fmt.Fprintf(w, "## Workflow — %s (mô tả, không phải engine)\n\n", name)
+	w.WriteString("Đây là quy trình squad **tự tuân theo** qua chat. Trạng thái task suy ra từ hội thoại trong thread (post `done`/`block`/`decision`), không cần lane-engine.\n\n")
+
+	// Stages = main-flow lanes in order; side lanes noted separately.
+	var main, side []string
+	for _, l := range wf.Lanes {
+		if l.Side {
+			side = append(side, l.ID)
+		} else {
+			main = append(main, l.ID)
+		}
+	}
+	if len(main) > 0 {
+		fmt.Fprintf(w, "**Các giai đoạn:** %s", strings.Join(main, " → "))
+		if len(side) > 0 {
+			fmt.Fprintf(w, " (bên lề: %s)", strings.Join(side, ", "))
+		}
+		w.WriteString("\n\n")
+	}
+
+	// Transitions = who moves work, with the gates that must pass first.
+	if len(wf.Transitions) > 0 {
+		w.WriteString("**Ai làm gì:**\n\n")
+		for _, t := range wf.Transitions {
+			by := strings.Join(t.By, "/")
+			if by == "*" || by == "" {
+				by = "bất kỳ ai"
+			}
+			line := fmt.Sprintf("- `%s → %s`", t.From, t.To)
+			if t.Action != "" {
+				line += fmt.Sprintf(" (%s)", t.Action)
+			}
+			line += fmt.Sprintf(": **%s**", by)
+			if len(t.Gates) > 0 {
+				line += fmt.Sprintf(" — qua gate: %s", strings.Join(t.Gates, ", "))
+			}
+			w.WriteString(line + "\n")
+		}
+		w.WriteString("\n")
+	}
+
+	// Ceremonies become recurring chat habits.
+	if len(wf.Ceremonies) > 0 {
+		names := make([]string, 0, len(wf.Ceremonies))
+		for n := range wf.Ceremonies {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		w.WriteString("**Nghi thức (mở thread định kỳ):** ")
+		parts := make([]string, 0, len(names))
+		for _, n := range names {
+			c := wf.Ceremonies[n]
+			if c.Trigger != "" {
+				parts = append(parts, fmt.Sprintf("%s (%s)", n, c.Trigger))
+			} else {
+				parts = append(parts, n)
+			}
+		}
+		w.WriteString(strings.Join(parts, ", ") + ".\n\n")
+	}
+}
+
+// renderChatProtocol teaches the Slack-style etiquette over the Hatch MCP bus.
+func renderChatProtocol(w *strings.Builder, _ Bundle) {
+	w.WriteString("## Chat protocol (giao tiếp = backlog) — Hatch MCP\n\n")
+	w.WriteString("Bạn nối với cả squad qua MCP server **`hatch`** (đăng ký sẵn cho agent của bạn). Tools: " + chatTools + ".\n\n")
+	w.WriteString("Cư xử như một thành viên squad người:\n\n")
+	w.WriteString("- **Đầu session:** `whoami` rồi `chat_inbox` để \"đọc phòng\" (DM/@mention/broadcast mới).\n")
+	w.WriteString("- **Mỗi task = một thread:** `chat_open(title, body)`. Brief tiến độ & kết quả bằng `chat_post(reply_to=<id gốc>)` — thread chính là task.\n")
+	w.WriteString("- **Cần đồng đội:** `@tag` đúng agent/role trong body (hoặc `to=`). Ai được tag sẽ đọc thread rồi trả lời **trong cùng thread**.\n")
+	w.WriteString("- **Việc chung:** mở topic và `@all` (hoặc `to=*`).\n")
+	w.WriteString("- **Trước khi suy diễn lại:** `chat_search` / `kb_search`. Recall theo từ khoá, đừng đọc hết.\n")
+	w.WriteString("- **Tri thức đáng giữ:** `kb_add` (type=decision|domain|learning).\n")
+	w.WriteString("- **Báo trạng thái** ngay trong thread: post kết quả khi xong, nêu lý do khi block.\n\n")
+}
+
+// renderDoD writes the self-check derived from workflow command-gates + policy.
+func renderDoD(w *strings.Builder, b Bundle) {
+	w.WriteString("## Definition of Done (tự kiểm trước khi báo xong)\n\n")
+	w.WriteString("Hatch không chạy gate thay bạn — **bạn tự chạy & xác nhận** trước khi post kết quả:\n\n")
+	// Command gates from the workflow become explicit shell checks.
+	var ran bool
+	if b.Workflow != nil {
+		// Stable order for deterministic output.
+		names := make([]string, 0, len(b.Workflow.Gates))
+		for n := range b.Workflow.Gates {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			if g := b.Workflow.Gates[n]; g.Type == model.GateCommand && g.Run != "" {
+				fmt.Fprintf(w, "- [ ] `%s` xanh (%s).\n", g.Run, n)
+				ran = true
+			}
+		}
+	}
+	if !ran {
+		w.WriteString("- [ ] Build/test/lint của dự án xanh.\n")
+	}
+	if b.Policy.NoSelfReview {
+		w.WriteString("- [ ] **Không tự review** code mình viết — @tag một reviewer khác.\n")
+	}
+	if b.Policy.HumanMerge {
+		w.WriteString("- [ ] **Không tự merge** — người cuối cùng merge là con người.\n")
+	}
+	w.WriteString("- [ ] Ghi quyết định/bài học đáng giữ bằng `kb_add`.\n")
+	w.WriteString("- [ ] Post kết quả (+ lý do nếu block) vào thread của task.\n\n")
 }

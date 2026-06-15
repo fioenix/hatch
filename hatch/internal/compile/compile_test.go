@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +43,91 @@ func TestRunProducesSurfaces(t *testing.T) {
 		if !strings.Contains(string(claude), want) {
 			t.Errorf("CLAUDE.md missing %q", want)
 		}
+	}
+}
+
+func TestCompileInjectsProtocolAndMCP(t *testing.T) {
+	dir := t.TempDir()
+	l, _, err := scaffold.Init(scaffold.Options{Dir: dir, Workflow: "scrum"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws, err := config.Load(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Run(ws); err != nil {
+		t.Fatal(err)
+	}
+
+	// Lead surface (claude-code holds conductor) carries the orchestrator block,
+	// the workflow prose, the chat protocol and the DoD self-check.
+	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	for _, want := range []string{
+		"Conductor (orchestrator)",
+		"Workflow — scrum",
+		"Chat protocol",
+		"chat_open",
+		"Definition of Done",
+		"make test",
+	} {
+		if !strings.Contains(string(claude), want) {
+			t.Errorf("CLAUDE.md missing %q", want)
+		}
+	}
+
+	// A non-lead surface gets the protocol but NOT the orchestrator block.
+	agents, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if strings.Contains(string(agents), "Conductor (orchestrator)") {
+		t.Error("AGENTS.md should not carry the orchestrator block")
+	}
+	if !strings.Contains(string(agents), "Chat protocol") {
+		t.Error("AGENTS.md missing chat protocol")
+	}
+
+	// MCP registration: Claude repo-local config plus a Codex paste-snippet.
+	mcp, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	if err != nil {
+		t.Fatalf("missing .mcp.json: %v", err)
+	}
+	if !strings.Contains(string(mcp), `"hatch"`) || !strings.Contains(string(mcp), `"--as"`) {
+		t.Errorf(".mcp.json missing hatch server: %s", mcp)
+	}
+	if !strings.Contains(string(mcp), "claude-code") {
+		t.Errorf(".mcp.json should register --as claude-code: %s", mcp)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".hatch", "mcp", "codex.codex.toml")); err != nil {
+		t.Errorf("missing codex MCP snippet: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro", "settings", "mcp.json")); err != nil {
+		t.Errorf("missing kiro MCP config: %v", err)
+	}
+}
+
+func TestMergeJSONServerPreservesOthers(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, ".mcp.json")
+	seed := `{"mcpServers":{"other":{"command":"x"}},"extra":true}`
+	if err := os.WriteFile(p, []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := mergeJSONServer(p, "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	raw, _ := os.ReadFile(p)
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("result not valid JSON: %v", err)
+	}
+	servers := got["mcpServers"].(map[string]any)
+	if _, ok := servers["other"]; !ok {
+		t.Error("merge dropped the pre-existing 'other' server")
+	}
+	if _, ok := servers["hatch"]; !ok {
+		t.Error("merge did not add the 'hatch' server")
+	}
+	if got["extra"] != true {
+		t.Error("merge dropped the top-level 'extra' key")
 	}
 }
 
