@@ -85,22 +85,20 @@ func TestCompileInjectsProtocolAndMCP(t *testing.T) {
 		t.Error("AGENTS.md missing chat protocol")
 	}
 
-	// MCP registration: Claude repo-local config plus a Codex paste-snippet.
-	mcp, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
+	// MCP registration: kiro's repo config plus a Codex paste-snippet. Claude is
+	// NOT given a .mcp.json — it is wired by its user-global plugin (hatch setup).
+	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); !os.IsNotExist(err) {
+		t.Errorf(".mcp.json should not be written (claude uses the plugin); err=%v", err)
+	}
+	kmcp, err := os.ReadFile(filepath.Join(dir, ".kiro", "settings", "mcp.json"))
 	if err != nil {
-		t.Fatalf("missing .mcp.json: %v", err)
+		t.Fatalf("missing kiro MCP config: %v", err)
 	}
-	if !strings.Contains(string(mcp), `"hatch"`) || !strings.Contains(string(mcp), `"--as"`) {
-		t.Errorf(".mcp.json missing hatch server: %s", mcp)
-	}
-	if !strings.Contains(string(mcp), "claude-code") {
-		t.Errorf(".mcp.json should register --as claude-code: %s", mcp)
+	if !strings.Contains(string(kmcp), `"hatch"`) || !strings.Contains(string(kmcp), "kiro") {
+		t.Errorf("kiro mcp.json missing hatch server / kiro identity: %s", kmcp)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".hatch", "mcp", "codex.codex.toml")); err != nil {
 		t.Errorf("missing codex MCP snippet: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".kiro", "settings", "mcp.json")); err != nil {
-		t.Errorf("missing kiro MCP config: %v", err)
 	}
 }
 

@@ -102,16 +102,22 @@ func newInitCmd() *cobra.Command {
 			if _, _, err := compile.Run(ws); err != nil {
 				return fmt.Errorf("compile: %w", err)
 			}
+			// compile writes the per-agent MCP registration: kiro's
+			// .kiro/settings/mcp.json (its only wiring point) plus paste snippets for
+			// codex/agy under .hatch/mcp/. claude/codex/agy were wired machine-wide by
+			// `hatch setup` (plugin / ~/.codex / ~/.gemini), so init adds nothing for
+			// them here.
 			fmt.Fprintf(out, "Compiled surfaces + MCP registration vào %s.\n", cwd)
 
-			// Wire the project-scoped agents present in the roster (claude .mcp.json,
-			// kiro .kiro/). codex/agy are home-scoped — wired once by `hatch setup`.
-			for _, k := range []string{"claude", "kiro"} {
-				if _, ok := agentIDForKind(ws, k); !ok {
-					continue
-				}
-				if err := setupClient(cmd, ws, cwd, k, dryRun); err != nil {
-					return err
+			// Keep the local .hatch out of git by default: it holds per-developer
+			// workspace state (board/ledger/kb). The compiled surfaces
+			// (CLAUDE.md/AGENTS.md/GEMINI.md) stay tracked — they are the agents'
+			// committed project instructions.
+			if !global {
+				if added, err := ensureGitignore(cwd, "/.hatch/"); err != nil {
+					fmt.Fprintf(out, "⚠ không cập nhật được .gitignore: %v\n", err)
+				} else if added {
+					fmt.Fprintln(out, "✓ .gitignore += /.hatch/ (workspace local — không commit)")
 				}
 			}
 			return nil
@@ -126,6 +132,28 @@ func newInitCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what init would do without writing")
 	_ = local // --local is the default; kept for backward compatibility
 	return cmd
+}
+
+// ensureGitignore appends pattern to repoRoot/.gitignore unless it is already
+// listed. Returns whether it added the line. Creates the file if absent.
+func ensureGitignore(repoRoot, pattern string) (bool, error) {
+	path := filepath.Join(repoRoot, ".gitignore")
+	raw, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	for _, ln := range strings.Split(string(raw), "\n") {
+		if strings.TrimSpace(ln) == pattern {
+			return false, nil
+		}
+	}
+	var b strings.Builder
+	b.Write(raw)
+	if len(raw) > 0 && !strings.HasSuffix(string(raw), "\n") {
+		b.WriteString("\n")
+	}
+	b.WriteString(pattern + "\n")
+	return true, os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
 // setRegistryOrchestrator writes/updates the top-level `orchestrator:` key in

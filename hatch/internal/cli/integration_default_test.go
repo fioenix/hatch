@@ -46,8 +46,13 @@ func TestEmbeddedHarnessFlow(t *testing.T) {
 	if !strings.Contains(string(claude), "Chat protocol") {
 		t.Error("CLAUDE.md missing the chat protocol")
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); err != nil {
-		t.Errorf("compile did not register the MCP server (.mcp.json): %v", err)
+	// Claude is wired by its plugin (hatch setup), not a repo .mcp.json. compile
+	// registers MCP for the repo-only client: kiro's .kiro/settings/mcp.json.
+	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); !os.IsNotExist(err) {
+		t.Errorf(".mcp.json should not be written (claude uses the plugin); err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro", "settings", "mcp.json")); err != nil {
+		t.Errorf("compile did not register the kiro MCP server: %v", err)
 	}
 
 	// A chat thread is a task. Post one as a human operator.

@@ -17,24 +17,19 @@ const mcpServerName = "hatch"
 // expected on PATH; agents speak MCP to it over stdio.
 const mcpBinary = "hatch"
 
-// writeMCPConfigs registers the `hatch mcp --as <agent>` server with every
-// agent that has a compile surface, so each agent reaches the shared chat + KB
+// writeMCPConfigs registers the `hatch mcp --as <agent>` server for the agents
+// whose only wiring point is the repo, so each reaches the shared chat + KB
 // under its own identity.
 //
-// Repo-local standards are written/merged in place (Claude `.mcp.json`, Kiro
-// `.kiro/settings/mcp.json`). Agents whose config lives in the user's home
-// (Codex, agy) get a paste-ready snippet under `.hatch/mcp/` instead — Hatch
-// never edits files outside the repo.
+// Only Kiro gets a repo file (`.kiro/settings/mcp.json`) — it reads MCP solely
+// from the project. Claude is wired by its user-global plugin (installed via
+// `hatch setup`), and Codex/agy by their $HOME config (also `hatch setup`); for
+// those two we still drop a paste-ready snippet under `.hatch/mcp/` as a manual
+// fallback. Hatch never edits files outside the repo.
 func writeMCPConfigs(ws *config.Workspace, repoRoot string) ([]string, error) {
 	var written []string
 	for _, a := range ws.Registry.Agents {
 		switch a.Kind {
-		case "claude":
-			p := filepath.Join(repoRoot, ".mcp.json")
-			if err := mergeJSONServer(p, a.ID); err != nil {
-				return written, err
-			}
-			written = append(written, p)
 		case "kiro":
 			p := filepath.Join(repoRoot, ".kiro", "settings", "mcp.json")
 			if err := mergeJSONServer(p, a.ID); err != nil {
