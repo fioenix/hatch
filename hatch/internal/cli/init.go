@@ -115,7 +115,7 @@ func newInitCmd() *cobra.Command {
 			// `kiro-cli --agent hatch`) carrying the MCP server + an agentSpawn hook
 			// that briefs it from the shared chat.
 			if id, ok := agentIDForKind(ws, "kiro"); ok && !dryRun {
-				p := filepath.Join(cwd, ".kiro", "cli-agents", "hatch.json")
+				p := filepath.Join(cwd, ".kiro", "agents", "hatch.json")
 				if err := writeKiroAgent(p, id); err != nil {
 					fmt.Fprintf(out, "⚠ kiro agent: %v\n", err)
 				} else {
@@ -207,7 +207,7 @@ func ensureGitignore(repoRoot, header string, patterns []string) (int, error) {
 }
 
 // writeKiroAgent merges the Hatch wiring into a workspace Kiro agent config
-// (.kiro/cli-agents/hatch.json): the MCP server plus an agentSpawn hook that
+// (.kiro/agents/hatch.json): the MCP server plus an agentSpawn hook that
 // runs `hatch brief`. It preserves any other fields/hooks the user added, and is
 // idempotent on the hook command. NOTE: validate with `kiro-cli agent validate`
 // once logged in — the schema here follows the documented amazon-q/Kiro format.
@@ -226,6 +226,10 @@ func writeKiroAgent(path, agentID string) error {
 	if root["description"] == nil {
 		root["description"] = "Hatch squad member — shared chat + KB over MCP, briefed on the backlog at session start."
 	}
+	// Kiro only exposes the hatch MCP tools when the workspace agent has BOTH
+	// includeMcpJson:true AND an embedded mcpServers.hatch (verified: either alone
+	// leaves the agent with no hatch tools). The harmless "duplicate hatch server"
+	// warning is the cost; tools work.
 	root["includeMcpJson"] = true
 	servers, _ := root["mcpServers"].(map[string]any)
 	if servers == nil {

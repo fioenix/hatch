@@ -10,7 +10,7 @@ import (
 
 func TestWriteKiroAgent(t *testing.T) {
 	dir := t.TempDir()
-	p := filepath.Join(dir, ".kiro", "cli-agents", "hatch.json")
+	p := filepath.Join(dir, ".kiro", "agents", "hatch.json")
 
 	if err := writeKiroAgent(p, "kiro"); err != nil {
 		t.Fatal(err)
@@ -26,8 +26,8 @@ func TestWriteKiroAgent(t *testing.T) {
 	if !strings.Contains(string(raw), "hatch brief --as kiro --format text") {
 		t.Errorf("missing agentSpawn hook: %s", raw)
 	}
-	if !strings.Contains(string(raw), `"--as"`) || !strings.Contains(string(raw), "mcp") {
-		t.Errorf("missing mcpServers.hatch: %s", raw)
+	if !strings.Contains(string(raw), `"includeMcpJson": true`) || !strings.Contains(string(raw), `"mcp"`) {
+		t.Errorf("missing includeMcpJson / mcpServers: %s", raw)
 	}
 
 	// Idempotent: re-run does not duplicate the hook.
