@@ -121,6 +121,20 @@ func newSetupCmd() *cobra.Command {
 					if err := setupClient(cmd, ws, "", alias, dryRun); err != nil {
 						return err
 					}
+					// Lifecycle hook: agy has no SessionStart, so brief on the first
+					// model call via a PreInvocation hook (injectSteps).
+					if id, ok := agentIDForKind(ws, "agy"); ok {
+						home, _ := os.UserHomeDir()
+						p := filepath.Join(home, ".gemini", "config", "hooks.json")
+						cmdStr := "hatch brief --as " + id + " --format agy"
+						if dryRun {
+							fmt.Fprintf(out, "[dry-run] agy: would write PreInvocation hook → %s (`%s`)\n", p, cmdStr)
+						} else if err := writeAgyHook(p, cmdStr); err != nil {
+							fmt.Fprintf(out, "⚠ agy hook: %v\n", err)
+						} else {
+							fmt.Fprintf(out, "✓ agy: PreInvocation hook → %s (`%s`)\n", p, cmdStr)
+						}
+					}
 				case "claude":
 					fmt.Fprintln(out, "claude: cài plugin (skill `hatch-chat` + /hatch) cho Claude Code:")
 					fmt.Fprintln(out, "    /plugin marketplace add fioenix/overclaud")
@@ -191,6 +205,33 @@ func mergeSessionStartHook(path, cmdStr string) (bool, error) {
 		return false, err
 	}
 	return true, os.Rename(tmp, path)
+}
+
+// writeAgyHook sets the "hatch" entry in an Antigravity CLI hooks.json — a
+// PreInvocation command hook running cmdStr — preserving any other named hooks.
+// agy's schema maps a hook NAME to its event config (see antigravity.google/docs/hooks).
+func writeAgyHook(path, cmdStr string) error {
+	root := map[string]any{}
+	if raw, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(raw, &root); err != nil {
+			return fmt.Errorf("%s không phải JSON hợp lệ: %w", path, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	root["hatch"] = map[string]any{
+		"PreInvocation": []any{
+			map[string]any{"type": "command", "command": cmdStr, "timeout": 10},
+		},
+	}
+	b, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
 // isInteractive reports whether stdin is a terminal (so we may prompt).

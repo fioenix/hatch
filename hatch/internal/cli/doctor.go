@@ -47,7 +47,8 @@ func wiringStatus(kind, repoRoot string) (mcp, hook string) {
 		return has(filepath.Join(home, ".codex", "config.toml"), "mcp_servers.hatch"),
 			has(filepath.Join(home, ".codex", "hooks.json"), "hatch brief")
 	case "agy":
-		return has(filepath.Join(home, ".gemini", "config", "mcp_config.json"), `"hatch"`), "—"
+		return has(filepath.Join(home, ".gemini", "config", "mcp_config.json"), `"hatch"`),
+			has(filepath.Join(home, ".gemini", "config", "hooks.json"), "hatch brief")
 	case "kiro":
 		return has(filepath.Join(repoRoot, ".kiro", "settings", "mcp.json"), `"hatch"`),
 			has(filepath.Join(repoRoot, ".kiro", "cli-agents", "hatch.json"), "hatch brief")

@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -46,26 +48,59 @@ func newBriefCmd() *cobra.Command {
 			channels, _ := b.Channels()
 
 			text := briefText(id, roles, msgs, channels)
-			if text == "" {
+
+			switch format {
+			case "text":
+				// Kiro agentSpawn / human: plain stdout (Kiro injects it as context).
+				if text != "" {
+					fmt.Fprintln(out, text)
+				}
 				return nil
+			case "agy":
+				// agy PreInvocation fires before every model call (no SessionStart),
+				// so brief only on the first invocation (invocationNum<=1) and inject
+				// via injectSteps.ephemeralMessage. Always emit valid JSON.
+				if text == "" || !agyFirstInvocation() {
+					fmt.Fprintln(out, "{}")
+					return nil
+				}
+				return json.NewEncoder(out).Encode(map[string]any{
+					"injectSteps": []any{map[string]any{"ephemeralMessage": text}},
+				})
+			default: // json — Claude Code / Codex SessionStart additionalContext
+				if text == "" {
+					return nil
+				}
+				return json.NewEncoder(out).Encode(map[string]any{
+					"hookSpecificOutput": map[string]any{
+						"hookEventName":     "SessionStart",
+						"additionalContext": text,
+					},
+				})
 			}
-			if format == "text" {
-				fmt.Fprintln(out, text)
-				return nil
-			}
-			payload := map[string]any{
-				"hookSpecificOutput": map[string]any{
-					"hookEventName":     "SessionStart",
-					"additionalContext": text,
-				},
-			}
-			enc := json.NewEncoder(out)
-			return enc.Encode(payload)
 		},
 	}
 	cmd.Flags().StringVar(&as, "as", "", "agent id to brief (default: $HATCH_AGENT or first claude-kind agent)")
-	cmd.Flags().StringVar(&format, "format", "json", "output: json (hook additionalContext) | text")
+	cmd.Flags().StringVar(&format, "format", "json", "output: json (Claude/Codex additionalContext) | agy (PreInvocation injectSteps) | text (Kiro/human)")
 	return cmd
+}
+
+// agyFirstInvocation reports whether the agy PreInvocation payload on stdin is
+// the session's first model call — so the brief is injected once, not every turn.
+// A missing/blank payload is treated as first (brief). Robust to 0- or 1-based
+// numbering: anything >1 is a later turn.
+func agyFirstInvocation() bool {
+	b, _ := io.ReadAll(os.Stdin)
+	if len(b) == 0 {
+		return true
+	}
+	var in struct {
+		InvocationNum int `json:"invocationNum"`
+	}
+	if err := json.Unmarshal(b, &in); err != nil {
+		return true
+	}
+	return in.InvocationNum <= 1
 }
 
 // briefText renders the squad briefing, or "" when there is nothing to say.

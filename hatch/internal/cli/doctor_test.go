@@ -20,8 +20,8 @@ func TestWiringStatus(t *testing.T) {
 	if mcp, hook := wiringStatus("codex", repo); mcp != "✗" || hook != "✗" {
 		t.Errorf("codex unwired: got %s/%s, want ✗/✗", mcp, hook)
 	}
-	if mcp, hook := wiringStatus("agy", repo); mcp != "✗" || hook != "—" {
-		t.Errorf("agy unwired: got %s/%s, want ✗/—", mcp, hook)
+	if mcp, hook := wiringStatus("agy", repo); mcp != "✗" || hook != "✗" {
+		t.Errorf("agy unwired: got %s/%s, want ✗/✗", mcp, hook)
 	}
 
 	// Wire codex (config.toml + hooks.json) and kiro (project mcp.json).

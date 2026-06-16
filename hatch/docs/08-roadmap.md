@@ -13,12 +13,6 @@ Việc đã chốt hướng nhưng chưa làm ngay:
   `${CLAUDE_PLUGIN_ROOT}/bin/hatch-launch.sh` tải binary từ release; `.mcp.json`
   + `hooks.json` trỏ launcher) · (tùy chọn) Homebrew tap. Không verify local
   được — nghiệm thu ở release đầu.
-- **agy SessionStart hook (chưa làm — cơ chế nặng).** Khác Codex/Claude: agy
-  hooks là **Python SDK** (`@hooks.on_session_start` trong plugin Antigravity
-  SDK, xem `~/.gemini/config/plugins/google-antigravity-sdk/.../hooks.md`),
-  KHÔNG phải `hooks.json` shell-command. Để auto-brief cần ship một plugin Python
-  gọi `hatch brief --as agy` qua subprocess + cài bằng `agy plugin install`.
-  Trong lúc chờ: agy vẫn tham gia chat đầy đủ qua MCP, chỉ thiếu brief-on-start.
 
 ## Phase 1 — Convention + Docs (chạy được không cần code)
 

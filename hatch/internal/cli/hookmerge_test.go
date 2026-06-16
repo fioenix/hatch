@@ -51,3 +51,26 @@ func TestMergeSessionStartHook(t *testing.T) {
 		t.Fatalf("create-when-absent: added=%v err=%v", added, err)
 	}
 }
+
+func TestWriteAgyHook(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "hooks.json")
+	// Seed an existing named hook — must be preserved.
+	if err := os.WriteFile(p, []byte(`{"my-linter":{"PostToolUse":[{"matcher":"*","hooks":[{"command":"lint.sh"}]}]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAgyHook(p, "hatch brief --as agy --format agy"); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(p)
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if root["my-linter"] == nil {
+		t.Errorf("dropped existing hook: %s", raw)
+	}
+	if !strings.Contains(string(raw), "PreInvocation") || !strings.Contains(string(raw), "hatch brief --as agy") {
+		t.Errorf("missing hatch PreInvocation hook: %s", raw)
+	}
+}
