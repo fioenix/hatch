@@ -1,0 +1,16 @@
+{
+  "description": "On session start, brief the agent with its Hatch inbox + open task threads.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hatch brief",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
