@@ -92,7 +92,7 @@ Workflow templates (scrum/kanban/spec-first/…) **vẫn giữ**, nhưng từ "c
 ### Lộ trình implement (đã chốt) — TRẠNG THÁI
 
 1. ✅ **`hatch mcp --as <agent>`** (stdio MCP server) trên bus/KB — tools: whoami, chat_open, chat_post, chat_read, chat_inbox, chat_search, chat_channels, kb_add, kb_search. (`internal/mcpserver`, `internal/cli/mcp.go`). `--as` mặc định = `$HATCH_AGENT` hoặc agent kind=claude đầu tiên.
-2. ✅ **compile đổi mục đích**: tiêm protocol (charter+roles+workflow-prose+DoD+chat-etiquette) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro; khối "orchestrator" cho lead agent; đăng ký MCP per-agent (`.mcp.json`, `.kiro/settings/mcp.json` merge; snippet `.hatch/mcp/*` cho codex/agy). (`internal/compile/render.go`, `mcp.go`).
+2. ✅ **compile đổi mục đích**: tiêm protocol (charter+roles+workflow-prose+DoD+chat-etiquette) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro; khối "orchestrator" cho lead agent; đăng ký MCP cho kiro (`.kiro/settings/mcp.json` merge; snippet `.hatch/mcp/*` cho codex/agy). Claude nạp MCP qua plugin → không ghi `.mcp.json`. (`internal/compile/render.go`, `mcp.go`).
 3. ✅ **Claude plugin** (`hatch/plugin/`): `.mcp.json` + skill `hatch-chat` + slash `/hatch`; `.claude-plugin/marketplace.json` ở repo root.
 4. ✅ **board/chat read-only**: board TUI = THREADS + CHAT + ACTIVITY(ledger); chat TUI = viewer; `status` tóm tắt thread + roster. Bỏ run/claim/compose.
 5. ✅ **Prune runtime operator → archive** sau build tag `hatch_legacy` (khôi phục được, không vào binary mặc định): run/plan/watch/tick, orchestrator, workflow-engine (gate/escalate/ticket), ceremonies, ask/convene, pair/mob, presence, oncall, cost/budget, workload/perf, report.

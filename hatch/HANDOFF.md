@@ -55,7 +55,9 @@ go build -tags hatch_legacy ./... && go test -tags hatch_legacy ./...  # + opera
 - **`hatch init [--client cc|codex|agy|kiro]`** — chạy trong repo: tạo `.hatch`
   **local** (mặc định), chọn 1 client làm **orchestrator** (mặc định cc → ghi
   `orchestrator: <id>` vào registry.yaml giữ nguyên comment), compile, wire agent
-  project-scoped (claude `.mcp.json`, kiro `.kiro/`). `--global` để nhắm `~/.hatch`.
+  kiro `.kiro/settings/mcp.json` (claude dùng plugin, codex/agy dùng config $HOME
+  từ setup → init KHÔNG ghi `.mcp.json`) + thêm `/.hatch/` vào `.gitignore`.
+  `--global` để nhắm `~/.hatch`.
   (`internal/cli/init.go`, `client.go`; lead resolve ở `compile/bundle.go`)
 - **Workspace phân tầng**: `~/.hatch` global + `.hatch` local override; output
   compile luôn vào repo hiện tại. (`internal/paths/`, `config.Workspace.Out()`)
