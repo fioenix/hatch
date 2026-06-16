@@ -4,11 +4,6 @@ node_modules/
 __pycache__/
 promo/
 
-# Hatch dogfood workspace for this repo (local-only): the .hatch SSOT plus the
-# compiled surfaces + MCP configs that `hatch init` generates at the repo root.
+# Hatch local workspace (per-developer board/ledger/kb state). The compiled
+# surfaces (CLAUDE.md/AGENTS.md/GEMINI.md) and .kiro/ are committed normally.
 /.hatch/
-/.kiro/
-/.mcp.json
-/CLAUDE.md
-/AGENTS.md
-/GEMINI.md
