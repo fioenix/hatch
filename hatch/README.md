@@ -144,7 +144,7 @@ Vì `codex`/`agy` chạy ở thư mục bạn mở, chúng tự dùng `.hatch` l
 
 ### Bước 3 — Vào repo: `hatch init`
 
-Chạy **trong repo dự án**. `hatch init` tạo `.hatch` **local** (đè global), chọn **một client làm orchestrator** (`--client`, mặc định `cc`), compile surfaces, và đăng ký MCP cho client chỉ-wire-được-ở-repo (`kiro` → `.kiro/settings/mcp.json`). `claude`/`codex`/`agy` đã wire một lần ở `hatch setup` (plugin / `~/.codex` / `~/.gemini`) nên init **không** ghi `.mcp.json`. Mặc định init còn thêm `/.hatch/` vào `.gitignore` (workspace local), còn surfaces thì commit bình thường:
+Chạy **trong repo dự án**. `hatch init` tạo `.hatch` **local** (đè global), chọn **một client làm orchestrator** (`--client`, mặc định `cc`), compile surfaces, và đăng ký MCP cho client chỉ-wire-được-ở-repo (`kiro` → `.kiro/settings/mcp.json`). `claude`/`codex`/`agy` đã wire một lần ở `hatch setup` (plugin / `~/.codex` / `~/.gemini`) nên init **không** ghi `.mcp.json`. Mặc định init thêm vào `.gitignore` **chỉ runtime của `.hatch`** (`board/ bus/ ledger/ compiled/ mcp/` — chat/ledger per-checkout, snippet regenerable); còn **SSOT** (`charter/registry/roles/context/workflow/protocol`) + `kb/` + surfaces thì commit bình thường để chia sẻ squad config:
 
 ```bash
 cd /đường/dẫn/repo-của-bạn

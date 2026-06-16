@@ -109,15 +109,15 @@ func newInitCmd() *cobra.Command {
 			// them here.
 			fmt.Fprintf(out, "Compiled surfaces + MCP registration vào %s.\n", cwd)
 
-			// Keep the local .hatch out of git by default: it holds per-developer
-			// workspace state (board/ledger/kb). The compiled surfaces
-			// (CLAUDE.md/AGENTS.md/GEMINI.md) stay tracked — they are the agents'
-			// committed project instructions.
+			// Ignore only the per-checkout runtime under .hatch (chat/ledger state +
+			// regenerable outputs). The SSOT (charter/registry/roles/context/workflow/
+			// protocol) and kb/ stay tracked so the squad config is shared; the
+			// compiled surfaces (CLAUDE.md/AGENTS.md/GEMINI.md) are committed too.
 			if !global {
-				if added, err := ensureGitignore(cwd, "/.hatch/"); err != nil {
+				if n, err := ensureGitignore(cwd, hatchIgnoreHeader, hatchRuntimeIgnores); err != nil {
 					fmt.Fprintf(out, "⚠ không cập nhật được .gitignore: %v\n", err)
-				} else if added {
-					fmt.Fprintln(out, "✓ .gitignore += /.hatch/ (workspace local — không commit)")
+				} else if n > 0 {
+					fmt.Fprintf(out, "✓ .gitignore += %d Hatch runtime path(s) (SSOT + kb commit bình thường)\n", n)
 				}
 			}
 			return nil
@@ -134,26 +134,61 @@ func newInitCmd() *cobra.Command {
 	return cmd
 }
 
-// ensureGitignore appends pattern to repoRoot/.gitignore unless it is already
-// listed. Returns whether it added the line. Creates the file if absent.
-func ensureGitignore(repoRoot, pattern string) (bool, error) {
+// hatchRuntimeIgnores are the per-checkout .hatch subdirs that don't belong in
+// git: the chat/ledger state and regenerable outputs. The SSOT (charter,
+// registry, roles, context, workflow, protocol) and kb/ are committed.
+var hatchRuntimeIgnores = []string{
+	"/.hatch/board/",
+	"/.hatch/bus/",
+	"/.hatch/ledger/",
+	"/.hatch/compiled/",
+	"/.hatch/mcp/",
+}
+
+const hatchIgnoreHeader = "# Hatch local workspace runtime (the .hatch SSOT + kb/ are committed)"
+
+// ensureGitignore appends any of patterns not already present to
+// repoRoot/.gitignore, under header (added once). Returns how many lines it
+// added. Creates the file if absent.
+func ensureGitignore(repoRoot, header string, patterns []string) (int, error) {
 	path := filepath.Join(repoRoot, ".gitignore")
 	raw, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
-		return false, err
+		return 0, err
 	}
+	present := map[string]bool{}
+	hasHeader := false
 	for _, ln := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(ln) == pattern {
-			return false, nil
+		t := strings.TrimSpace(ln)
+		present[t] = true
+		if t == header {
+			hasHeader = true
 		}
+	}
+	var missing []string
+	for _, p := range patterns {
+		if !present[p] {
+			missing = append(missing, p)
+		}
+	}
+	if len(missing) == 0 {
+		return 0, nil
 	}
 	var b strings.Builder
 	b.Write(raw)
 	if len(raw) > 0 && !strings.HasSuffix(string(raw), "\n") {
 		b.WriteString("\n")
 	}
-	b.WriteString(pattern + "\n")
-	return true, os.WriteFile(path, []byte(b.String()), 0o644)
+	if !hasHeader && header != "" {
+		if len(raw) > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(header + "\n")
+	}
+	for _, p := range missing {
+		b.WriteString(p + "\n")
+	}
+	return len(missing), os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
 // setRegistryOrchestrator writes/updates the top-level `orchestrator:` key in
