@@ -26,8 +26,10 @@ const (
 	LedgerDir   = "ledger"
 	ProtocolDir = "protocol"
 	CompiledDir = "compiled"
+	LogsDir     = "logs"
 
 	ManifestFile = "compiled/.manifest.json"
+	MCPLogFile   = "logs/mcp.jsonl"
 	KBIndexFile  = "kb/index.md"
 	KBMetaFile   = "kb/.meta.json"
 )
@@ -50,6 +52,8 @@ func (l Layout) Lane(name string) string { return l.path(BoardDir, name) }
 func (l Layout) Ledger() string          { return l.path(LedgerDir) }
 func (l Layout) Protocol() string        { return l.path(ProtocolDir) }
 func (l Layout) Compiled() string        { return l.path(CompiledDir) }
+func (l Layout) Logs() string            { return l.path(LogsDir) }
+func (l Layout) MCPLog() string          { return l.path(MCPLogFile) }
 func (l Layout) Manifest() string        { return l.path(ManifestFile) }
 func (l Layout) KBIndex() string         { return l.path(KBIndexFile) }
 func (l Layout) KBMeta() string          { return l.path(KBMetaFile) }

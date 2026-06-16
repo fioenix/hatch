@@ -157,6 +157,7 @@ var hatchRuntimeIgnores = []string{
 	"/.hatch/ledger/",
 	"/.hatch/compiled/",
 	"/.hatch/mcp/",
+	"/.hatch/logs/",
 }
 
 const hatchIgnoreHeader = "# Hatch local workspace runtime (the .hatch SSOT + kb/ are committed)"

@@ -23,6 +23,10 @@ import (
 // (`hatch mcp --as <agent>`).
 func New(ws *config.Workspace, me, version string) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "hatch", Title: "Hatch chat", Version: version}, nil)
+	// Self-observability: record every tool call (who, what, ok/err, latency) to
+	// the workspace MCP log, so `hatch trace` shows what agents did and surfaces
+	// Hatch's own errors — without digging into each agent's MCP logs.
+	s.AddReceivingMiddleware(traceMiddleware(ws.Layout.MCPLog(), me))
 	b := bus.New(ws.Layout)
 	kb := store.NewKB(ws.Layout)
 	roles := rolesOf(ws, me)

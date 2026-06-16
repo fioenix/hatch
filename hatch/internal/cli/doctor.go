@@ -187,6 +187,11 @@ func newDoctorCmd() *cobra.Command {
 				fmt.Fprintln(out, "● chỉ có mock — ổn để test; cài ≥1 agent CLI thật để chạy thật")
 			}
 
+			// MCP self-observability: surface recent tool-call failures.
+			if errs := readTrace(ws.Layout.MCPLog(), true); len(errs) > 0 {
+				fmt.Fprintf(out, "● MCP: %d tool-call lỗi gần đây — xem `hatch trace --errors`\n", len(errs))
+			}
+
 			if issues == 0 {
 				fmt.Fprintln(out, "✓ ready")
 				return nil
