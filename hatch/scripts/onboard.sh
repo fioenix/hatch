@@ -3,14 +3,14 @@
 # and spin up a runnable demo workspace (using the mock agent) so you can try
 # everything locally — no real agent CLI required.
 #
-#   ./scripts/onboard.sh            # build + demo in ./.hatch-demo
+#   ./scripts/onboard.sh            # build + demo in ./demo-workspace
 #   ./scripts/onboard.sh --install  # also `go install` hatch + hatch-mock
 #   ./scripts/onboard.sh --no-demo  # just build (+install)
 #   ./scripts/onboard.sh --demo DIR # demo in DIR
 set -euo pipefail
 
 HATCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEMO_DIR="$HATCH_DIR/.hatch-demo"
+DEMO_DIR="$HATCH_DIR/demo-workspace"
 DO_INSTALL=0
 DO_DEMO=1
 
@@ -56,7 +56,7 @@ if [ "$DO_DEMO" = "1" ]; then
   mkdir -p "$DEMO_DIR"
   cd "$DEMO_DIR"
   git init -q
-  hatch init -w scrum >/dev/null
+  hatch init --local -w scrum >/dev/null   # --local: workspace của riêng demo repo này
 
   step "Compiling the SSOT (protocol + per-agent MCP registration)"
   hatch compile

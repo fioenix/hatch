@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -16,35 +17,55 @@ import (
 func newInitCmd() *cobra.Command {
 	var workflow string
 	var force bool
+	var local bool
 	var clients []string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
-		Short: "Create a new .hatch/ workspace; optionally set up a client (--client cc|codex|agy|kiro)",
-		Args:  cobra.MaximumNArgs(1),
+		Short: "Create the global ~/.hatch workspace (or a local one with --local); optionally wire a client",
+		Long: "By default `hatch init` creates the user-level workspace at ~/.hatch (like ~/.claude),\n" +
+			"used as the default in every repo. Use --local to create a project .hatch in the\n" +
+			"current repo that OVERRIDES the global one. Pass [dir] to target an explicit directory.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := "."
-			if len(args) == 1 {
-				dir = args[0]
-			}
 			out := cmd.OutOrStdout()
-
-			// Scaffold unless a workspace already exists and we're only wiring a
-			// client into it (so `hatch init --client codex` works in-place).
-			existing := false
-			if _, err := paths.Find(dir); err == nil {
-				existing = true
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
 			}
-			if existing && len(clients) > 0 && !force {
-				fmt.Fprintf(out, "Workspace .hatch đã tồn tại — bỏ qua scaffold, chỉ set up client.\n")
+
+			// Where the .hatch SSOT lives: explicit dir > --local (cwd) > global (~).
+			scaffoldDir := ""
+			switch {
+			case len(args) == 1:
+				scaffoldDir = args[0]
+			case local:
+				scaffoldDir = "."
+			default:
+				g := paths.GlobalRoot()
+				if g == "" {
+					return fmt.Errorf("cannot resolve home dir for ~/.hatch; use --local or pass a dir")
+				}
+				scaffoldDir = filepath.Dir(g) // parent of ~/.hatch
+			}
+			absScaffold, _ := filepath.Abs(scaffoldDir)
+			ssot := paths.At(absScaffold)
+			scope := "global (~/.hatch)"
+			if local || len(args) == 1 {
+				scope = "local override"
+			}
+
+			// Scaffold unless it already exists and we're only wiring a client.
+			if _, statErr := os.Stat(ssot.Root); statErr == nil && len(clients) > 0 && !force {
+				fmt.Fprintf(out, "Workspace %s đã tồn tại — bỏ qua scaffold, chỉ set up client.\n", ssot.Root)
 			} else {
-				l, written, err := scaffold.Init(scaffold.Options{Dir: dir, Workflow: workflow, Force: force})
+				l, written, err := scaffold.Init(scaffold.Options{Dir: absScaffold, Workflow: workflow, Force: force})
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(out, "Created %s (%d files, workflow=%s)\n", l.Root, len(written), workflow)
+				fmt.Fprintf(out, "Created %s [%s] (%d files, workflow=%s)\n", l.Root, scope, len(written), workflow)
 				if len(clients) == 0 {
-					fmt.Fprintln(out, "Next: edit charter.md + registry.yaml, then `hatch compile`.")
+					fmt.Fprintln(out, "Next: edit charter.md + registry.yaml, then `hatch compile` (hoặc `hatch init --client cc`).")
 				}
 			}
 
@@ -52,21 +73,21 @@ func newInitCmd() *cobra.Command {
 				return nil
 			}
 
-			// Load the workspace and compile so each client has its instruction
-			// surface + base MCP registration, then wire the requested clients.
-			absDir, _ := filepath.Abs(dir)
-			ws, err := config.Load(paths.At(absDir))
+			// Load that workspace; compiled outputs + client config go to the
+			// current repo (cwd), even when the SSOT is the global ~/.hatch.
+			ws, err := config.Load(ssot)
 			if err != nil {
 				return err
 			}
+			ws.OutputRoot = cwd
 			if !dryRun {
 				if _, _, err := compile.Run(ws); err != nil {
 					return fmt.Errorf("compile: %w", err)
 				}
-				fmt.Fprintln(out, "Compiled surfaces + MCP registration.")
+				fmt.Fprintf(out, "Compiled surfaces + MCP registration vào %s.\n", cwd)
 			}
 			for _, c := range splitClients(clients) {
-				if err := setupClient(cmd, ws, absDir, c, dryRun); err != nil {
+				if err := setupClient(cmd, ws, cwd, c, dryRun); err != nil {
 					return err
 				}
 			}
@@ -76,8 +97,9 @@ func newInitCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflow, "workflow", "w", "scrum",
 		"workflow template: "+strings.Join(scaffold.WorkflowTemplates, " | "))
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing .hatch")
+	cmd.Flags().BoolVar(&local, "local", false, "create a project .hatch in the current repo (overrides ~/.hatch)")
 	cmd.Flags().StringSliceVar(&clients, "client", nil,
-		"set up MCP for a client and exit-wire it: cc | codex | agy | kiro (repeatable / comma-separated)")
+		"set up MCP for a client and wire it into the current repo: cc | codex | agy | kiro (repeatable / comma-separated)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what --client setup would do without writing")
 	return cmd
 }

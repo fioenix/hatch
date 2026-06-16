@@ -75,9 +75,11 @@ func plan(ws *config.Workspace) ([]surfacePlan, []string) {
 	return plans, warnings
 }
 
-// Run compiles the SSOT to every surface and updates the manifest.
+// Run compiles the SSOT to every surface and updates the manifest. Outputs go
+// to ws.Out() (the working repo), which may differ from the SSOT location when
+// the global ~/.hatch is in use.
 func Run(ws *config.Workspace) (*Result, []string, error) {
-	repoRoot := ws.Layout.RepoRoot()
+	repoRoot := ws.Out()
 	plans, warnings := plan(ws)
 
 	m := &Manifest{

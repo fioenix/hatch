@@ -122,15 +122,21 @@ export PATH="$(go env GOPATH)/bin:$PATH"   # nếu chưa có
 hatch --version
 ```
 
-### Bước 2 — Khởi tạo trong repo của bạn
+### Bước 2 — Khởi tạo workspace (global mặc định, local override)
+
+`.hatch` phân tầng giống `~/.claude` của Claude Code: **một bản global ở `~/.hatch` làm mặc định**, và mỗi repo có thể tạo **`.hatch` local để override**.
 
 ```bash
+hatch init -w scrum          # tạo ~/.hatch (GLOBAL, dùng chung mọi repo). 8 template:
+                             #   scrum kanban spec-first lite dual-track shape-up stage-gate incident
+#   → ~/.hatch (SSOT): charter.md · roles/ · registry.yaml · workflow.yaml · kb/ · ledger/
+
+# Tùy chọn: override riêng cho một repo
 cd /đường/dẫn/repo-của-bạn
-hatch init -w scrum          # 8 template: scrum kanban spec-first lite dual-track shape-up stage-gate incident
-#   → tạo .hatch/ (SSOT): charter.md · roles/ · registry.yaml · workflow.yaml · kb/ · ledger/
+hatch init --local -w scrum  # tạo ./.hatch trong repo này, đè lên global
 ```
 
-Sửa `.hatch/charter.md` (sản phẩm là gì) và `.hatch/registry.yaml` (agent nào giữ vai gì) cho đúng đội của bạn.
+Cơ chế resolve: lệnh `hatch` tìm `.hatch` local (đi ngược lên từ thư mục hiện tại); không có thì dùng `~/.hatch` global. Đặt `HATCH_HOME` để đổi vị trí global. Sửa `charter.md` (sản phẩm) + `registry.yaml` (ai giữ vai gì) cho đúng đội.
 
 ### Bước 3 — Compile SSOT → surfaces + đăng ký MCP
 
@@ -187,8 +193,8 @@ Hatch là CLI viết bằng Go (single binary). Đây là **embedded harness**: 
 ```bash
 ./scripts/onboard.sh         # build + dựng demo workspace để thử ngay — hoặc `make onboard`
 make build                   # → bin/hatch
-bin/hatch init -w scrum       # 8 template: scrum kanban spec-first lite dual-track shape-up stage-gate incident
-bin/hatch init --client codex # set up MCP cho 1 client: cc|codex|agy|kiro (compile + ghi config đúng chỗ; --dry-run xem trước)
+bin/hatch init -w scrum       # tạo ~/.hatch GLOBAL (mặc định). --local: tạo ./.hatch override trong repo
+bin/hatch init --client codex # set up MCP cho 1 client: cc|codex|agy|kiro (compile vào repo hiện tại; --dry-run xem trước)
 bin/hatch compile             # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering
                               #   (protocol prose: workflow + chat etiquette + DoD self-check + khối orchestrator
                               #    cho lead) + đăng ký MCP per-agent (.mcp.json · .kiro/settings/mcp.json merge;

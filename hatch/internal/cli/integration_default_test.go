@@ -30,7 +30,9 @@ func TestEmbeddedHarnessFlow(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 
-	if out, err := run(t, "init", "-w", "scrum"); err != nil {
+	// --local: create a project .hatch in this repo (the default now targets
+	// the global ~/.hatch).
+	if out, err := run(t, "init", "--local", "-w", "scrum"); err != nil {
 		t.Fatalf("init: %v\n%s", err, out)
 	}
 

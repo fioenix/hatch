@@ -17,6 +17,19 @@ type Workspace struct {
 	Layout   paths.Layout
 	Registry *model.Registry
 	Workflow *model.Workflow
+	// OutputRoot is where compiled surfaces (CLAUDE.md, .mcp.json, …) are
+	// written. For a local .hatch it is the repo root (parent of .hatch); for
+	// the global ~/.hatch it is the current working repo. Empty falls back to
+	// Layout.RepoRoot().
+	OutputRoot string
+}
+
+// Out returns the directory compiled outputs should be written to.
+func (w *Workspace) Out() string {
+	if w.OutputRoot != "" {
+		return w.OutputRoot
+	}
+	return w.Layout.RepoRoot()
 }
 
 // LoadRegistry reads and parses registry.yaml.

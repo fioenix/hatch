@@ -90,9 +90,24 @@ func (l Layout) RepoRoot() string { return filepath.Dir(l.Root) }
 // ErrNotFound indicates no .hatch workspace was located.
 var ErrNotFound = errors.New("no .hatch workspace found (run `hatch init`)")
 
-// Find walks up from start looking for a .hatch directory and returns its
-// Layout. It stops at the filesystem root.
-func Find(start string) (Layout, error) {
+// GlobalRoot is the user-level .hatch directory used as the default when no
+// local .hatch overrides it: $HATCH_HOME if set (taken as the .hatch path
+// directly), else ~/.hatch. Returns "" if the home dir can't be resolved.
+func GlobalRoot() string {
+	if v := os.Getenv("HATCH_HOME"); v != "" {
+		return v
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, Dir)
+}
+
+// FindLocal walks up from start looking for a .hatch directory and returns its
+// Layout. It stops at the filesystem root. It does NOT fall back to the global
+// workspace.
+func FindLocal(start string) (Layout, error) {
 	dir, err := filepath.Abs(start)
 	if err != nil {
 		return Layout{}, err
@@ -108,6 +123,21 @@ func Find(start string) (Layout, error) {
 		}
 		dir = parent
 	}
+}
+
+// Find resolves the workspace the way commands should: a local .hatch (nearest
+// ancestor of start) overrides the global ~/.hatch. Returns the local one if
+// present, else the global one if it exists, else ErrNotFound.
+func Find(start string) (Layout, error) {
+	if l, err := FindLocal(start); err == nil {
+		return l, nil
+	}
+	if g := GlobalRoot(); g != "" {
+		if fi, err := os.Stat(g); err == nil && fi.IsDir() {
+			return Layout{Root: g}, nil
+		}
+	}
+	return Layout{}, ErrNotFound
 }
 
 // At returns a Layout rooted at <dir>/.hatch without requiring it to exist.

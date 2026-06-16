@@ -52,15 +52,32 @@ func NewRoot() *cobra.Command {
 	return root
 }
 
-// loadWorkspace finds the .hatch workspace from cwd and loads its config.
+// loadWorkspace resolves the workspace with global+local layering: a local
+// .hatch (nearest ancestor of cwd) overrides the global ~/.hatch. Compiled
+// outputs always target the current repo (cwd) — for a local workspace that is
+// the repo root; for the global default it is wherever you're working.
 func loadWorkspace() (*config.Workspace, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	l, err := paths.Find(cwd)
-	if err != nil {
-		return nil, err
+	if l, err := paths.FindLocal(cwd); err == nil {
+		ws, err := config.Load(l)
+		if err != nil {
+			return nil, err
+		}
+		ws.OutputRoot = l.RepoRoot()
+		return ws, nil
 	}
-	return config.Load(l)
+	if g := paths.GlobalRoot(); g != "" {
+		if fi, statErr := os.Stat(g); statErr == nil && fi.IsDir() {
+			ws, err := config.Load(paths.Layout{Root: g})
+			if err != nil {
+				return nil, err
+			}
+			ws.OutputRoot = cwd // global SSOT compiles into the current repo
+			return ws, nil
+		}
+	}
+	return nil, paths.ErrNotFound
 }

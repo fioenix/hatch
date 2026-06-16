@@ -2,6 +2,6 @@
 # cmd/hatch source directory.
 /bin/
 /hatch
-/.hatch-demo/
+/demo-workspace/
 *.out
 *.test

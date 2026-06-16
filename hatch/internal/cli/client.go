@@ -79,18 +79,19 @@ func setupClient(cmd *cobra.Command, ws *config.Workspace, repoRoot, alias strin
 
 	case "codex":
 		// Codex owns ~/.codex/config.toml; let its own CLI edit it.
+		snippet := filepath.Join(ws.Layout.Root, "mcp", id+".codex.toml")
 		if path, err := exec.LookPath("codex"); err == nil && !dryRun {
 			cargs := append([]string{"mcp", "add", "hatch", "--"}, append([]string{"hatch"}, args...)...)
 			c := exec.Command(path, cargs...)
 			if b, err := c.CombinedOutput(); err != nil {
 				fmt.Fprintf(out, "codex: `codex mcp add` lỗi (%v): %s\n", err, strings.TrimSpace(string(b)))
-				fmt.Fprintf(out, "  dán tay khối ở %s vào ~/.codex/config.toml\n", rel(repoRoot, filepath.Join(repoRoot, ".hatch", "mcp", id+".codex.toml")))
+				fmt.Fprintf(out, "  dán tay khối ở %s vào ~/.codex/config.toml\n", snippet)
 			} else {
 				fmt.Fprintf(out, "codex: đã `codex mcp add hatch -- hatch mcp --as %s` (→ ~/.codex/config.toml)\n", id)
 			}
 		} else {
 			say(out, dryRun, "codex: chạy `codex mcp add hatch -- hatch mcp --as %s`", id)
-			fmt.Fprintf(out, "  (hoặc dán %s vào ~/.codex/config.toml)\n", rel(repoRoot, filepath.Join(repoRoot, ".hatch", "mcp", id+".codex.toml")))
+			fmt.Fprintf(out, "  (hoặc dán %s vào ~/.codex/config.toml)\n", snippet)
 		}
 
 	case "agy":

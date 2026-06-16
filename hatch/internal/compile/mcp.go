@@ -42,13 +42,15 @@ func writeMCPConfigs(ws *config.Workspace, repoRoot string) ([]string, error) {
 			}
 			written = append(written, p)
 		case "codex":
-			p := filepath.Join(repoRoot, ".hatch", "mcp", a.ID+".codex.toml")
+			// Snippets are reference docs, kept with the SSOT (not scattered into
+			// the working repo, which would look like a local .hatch override).
+			p := filepath.Join(ws.Layout.Root, "mcp", a.ID+".codex.toml")
 			if err := writeFile(p, codexSnippet(a.ID)); err != nil {
 				return written, err
 			}
 			written = append(written, p)
 		case "agy", "antigravity":
-			p := filepath.Join(repoRoot, ".hatch", "mcp", a.ID+".agy.md")
+			p := filepath.Join(ws.Layout.Root, "mcp", a.ID+".agy.md")
 			if err := writeFile(p, agySnippet(a.ID)); err != nil {
 				return written, err
 			}
