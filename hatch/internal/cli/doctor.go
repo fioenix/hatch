@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -20,6 +22,37 @@ var envForKind = map[string]string{
 	"claude": "ANTHROPIC_API_KEY",
 	"codex":  "OPENAI_API_KEY",
 	"kiro":   "KIRO_API_KEY",
+}
+
+// wiringStatus reports whether an agent kind has its Hatch MCP server and
+// session-start hook wired, by inspecting the config each CLI actually reads.
+// Claude is wired by its user-global plugin (not a file we can cheaply detect),
+// so it reports "plugin"; agy's hook is a Python-SDK plugin (backlog) → "—".
+func wiringStatus(kind, repoRoot string) (mcp, hook string) {
+	home, _ := os.UserHomeDir()
+	has := func(path, needle string) string {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return "✗"
+		}
+		if strings.Contains(string(b), needle) {
+			return "✓"
+		}
+		return "✗"
+	}
+	switch kind {
+	case "claude":
+		return "plugin", "plugin"
+	case "codex":
+		return has(filepath.Join(home, ".codex", "config.toml"), "mcp_servers.hatch"),
+			has(filepath.Join(home, ".codex", "hooks.json"), "hatch brief")
+	case "agy":
+		return has(filepath.Join(home, ".gemini", "config", "mcp_config.json"), `"hatch"`), "—"
+	case "kiro":
+		return has(filepath.Join(repoRoot, ".kiro", "settings", "mcp.json"), `"hatch"`),
+			has(filepath.Join(repoRoot, ".kiro", "cli-agents", "hatch.json"), "hatch brief")
+	}
+	return "—", "—"
 }
 
 // defaultCmdForKind is the executable each kind drives.
@@ -118,7 +151,7 @@ func newDoctorCmd() *cobra.Command {
 			// NOT mandatory — you only need at least one usable agent.
 			fmt.Fprintln(out, "\nAgents (cài cái nào dùng cái nấy — chỉ cần ≥1):")
 			tw := tabwriter.NewWriter(out, 0, 2, 2, ' ', 0)
-			fmt.Fprintln(tw, "  AGENT\tKIND\tCLI\tAUTH")
+			fmt.Fprintln(tw, "  AGENT\tKIND\tCLI\tAUTH\tMCP\tHOOK")
 			present, presentReal := 0, 0
 			for _, a := range ws.Registry.Agents {
 				bin := a.Cmd
@@ -138,12 +171,14 @@ func newDoctorCmd() *cobra.Command {
 						cli = "✗ " + bin
 					}
 				}
-				fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", a.ID, a.Kind, cli, authStatus(a, bin, cliPresent))
+				mcp, hook := wiringStatus(a.Kind, ws.Layout.RepoRoot())
+				fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\t%s\n", a.ID, a.Kind, cli, authStatus(a, bin, cliPresent), mcp, hook)
 			}
 			tw.Flush()
 
 			fmt.Fprintln(out)
 			fmt.Fprintln(out, "auth: ✓ sẵn sàng · ? không kiểm được (keyring/cấu hình) — login OAuth hoặc env key đều dùng được")
+			fmt.Fprintln(out, "MCP/HOOK: ✓ đã wire · ✗ chưa (chạy `hatch setup`/`hatch init`) · plugin: qua Claude plugin · — không áp dụng")
 			if present == 0 {
 				issues++
 				fmt.Fprintln(out, "✗ không có agent CLI nào khả dụng — cài ít nhất 1 (claude/codex/agy/kiro)")
