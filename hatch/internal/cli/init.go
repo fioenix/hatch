@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -109,6 +110,19 @@ func newInitCmd() *cobra.Command {
 			// them here.
 			fmt.Fprintf(out, "Compiled surfaces + MCP registration vào %s.\n", cwd)
 
+			// Kiro reaches MCP + lifecycle hooks only through an agent config, not a
+			// standalone hooks.json. Write a workspace "hatch" agent (run with
+			// `kiro-cli --agent hatch`) carrying the MCP server + an agentSpawn hook
+			// that briefs it from the shared chat.
+			if id, ok := agentIDForKind(ws, "kiro"); ok && !dryRun {
+				p := filepath.Join(cwd, ".kiro", "cli-agents", "hatch.json")
+				if err := writeKiroAgent(p, id); err != nil {
+					fmt.Fprintf(out, "⚠ kiro agent: %v\n", err)
+				} else {
+					fmt.Fprintf(out, "✓ kiro: workspace agent %s (chạy `kiro-cli --agent hatch`)\n", rel(cwd, p))
+				}
+			}
+
 			// Ignore only the per-checkout runtime under .hatch (chat/ledger state +
 			// regenerable outputs). The SSOT (charter/registry/roles/context/workflow/
 			// protocol) and kb/ stay tracked so the squad config is shared; the
@@ -189,6 +203,64 @@ func ensureGitignore(repoRoot, header string, patterns []string) (int, error) {
 		b.WriteString(p + "\n")
 	}
 	return len(missing), os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+// writeKiroAgent merges the Hatch wiring into a workspace Kiro agent config
+// (.kiro/cli-agents/hatch.json): the MCP server plus an agentSpawn hook that
+// runs `hatch brief`. It preserves any other fields/hooks the user added, and is
+// idempotent on the hook command. NOTE: validate with `kiro-cli agent validate`
+// once logged in — the schema here follows the documented amazon-q/Kiro format.
+func writeKiroAgent(path, agentID string) error {
+	root := map[string]any{}
+	if raw, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(raw, &root); err != nil {
+			return fmt.Errorf("%s không phải JSON hợp lệ: %w", path, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if root["name"] == nil {
+		root["name"] = "hatch"
+	}
+	if root["description"] == nil {
+		root["description"] = "Hatch squad member — shared chat + KB over MCP, briefed on the backlog at session start."
+	}
+	root["includeMcpJson"] = true
+	servers, _ := root["mcpServers"].(map[string]any)
+	if servers == nil {
+		servers = map[string]any{}
+	}
+	servers["hatch"] = map[string]any{"command": "hatch", "args": []any{"mcp", "--as", agentID}}
+	root["mcpServers"] = servers
+
+	cmdStr := "hatch brief --as " + agentID + " --format text"
+	hooks, _ := root["hooks"].(map[string]any)
+	if hooks == nil {
+		hooks = map[string]any{}
+	}
+	spawn, _ := hooks["agentSpawn"].([]any)
+	found := false
+	for _, h := range spawn {
+		hm, _ := h.(map[string]any)
+		if s, _ := hm["command"].(string); s == cmdStr {
+			found = true
+			break
+		}
+	}
+	if !found {
+		spawn = append(spawn, map[string]any{"command": cmdStr})
+	}
+	hooks["agentSpawn"] = spawn
+	root["hooks"] = hooks
+
+	b, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
 // setRegistryOrchestrator writes/updates the top-level `orchestrator:` key in

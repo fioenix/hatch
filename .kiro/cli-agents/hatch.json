@@ -1,0 +1,22 @@
+{
+  "description": "Hatch squad member — shared chat + KB over MCP, briefed on the backlog at session start.",
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "hatch brief --as kiro --format text"
+      }
+    ]
+  },
+  "includeMcpJson": true,
+  "mcpServers": {
+    "hatch": {
+      "args": [
+        "mcp",
+        "--as",
+        "kiro"
+      ],
+      "command": "hatch"
+    }
+  },
+  "name": "hatch"
+}
