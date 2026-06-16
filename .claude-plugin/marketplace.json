@@ -4,10 +4,15 @@
     "name": "Finolabs",
     "url": "https://github.com/fioenix/overclaud"
   },
+  "metadata": {
+    "description": "Embedded harness for a coding-agent squad: shared chat (= comms + backlog) and a knowledge base over MCP.",
+    "version": "0.1.0"
+  },
   "plugins": [
     {
       "name": "hatch",
       "source": "./hatch/plugin",
+      "version": "0.1.0",
       "description": "Embedded harness for a coding-agent squad: shared chat (= comms + backlog) and a knowledge base over MCP."
     }
   ]
