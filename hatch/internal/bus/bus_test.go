@@ -55,6 +55,21 @@ func TestInboxMatchesIdRoleAndStar(t *testing.T) {
 	}
 }
 
+func TestInboxMatchesAtPrefixedRecipient(t *testing.T) {
+	// chat_open/chat_post pass the `to` arg verbatim ("@codex"); Post must
+	// normalise it to the bare handle so Inbox (keyed on agent id) matches.
+	b := newBus(t)
+	b.Post(Message{Channel: "t", From: "claude-code", To: []string{"@codex"}, Body: "DM with @ prefix"})
+
+	in, err := b.Inbox("codex", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(in) != 1 || in[0].Body != "DM with @ prefix" {
+		t.Fatalf("@-prefixed recipient not routed to inbox: %+v", in)
+	}
+}
+
 func TestInboxExcludesOwnAndRespectsCursor(t *testing.T) {
 	b := newBus(t)
 	b.Post(Message{Channel: "t", From: "claude-code", To: []string{"*"}, Body: "my own"})

@@ -34,7 +34,7 @@ var defaultCmdForKind = map[string]string{
 var defaultAuthCheck = map[string][]string{
 	"claude": {"auth", "status"},  // exit 0 if logged in, 1 if not (JSON)
 	"codex":  {"login", "status"}, // exit 0 if authed
-	"kiro":   {"whoami"},          // exit 0 if authed
+	"kiro":   {"user", "whoami"},  // exit 0 if authed (documented path)
 }
 
 // authKinds are agent kinds that require authentication (vs mock/manual/shell).

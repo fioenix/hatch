@@ -89,6 +89,11 @@ func (b *Bus) Post(m Message) (Message, error) {
 	if m.Type == "" {
 		m.Type = TypeMsg
 	}
+	// Normalise explicit recipients to bare handles ("@codex" → "codex") so they
+	// match the same form Mentions() stores and Inbox() looks up.
+	for i := range m.To {
+		m.To[i] = strings.TrimPrefix(strings.TrimSpace(m.To[i]), "@")
+	}
 	// @mentions in the body tag teammates (agent ids or roles) just like Slack.
 	for _, tag := range Mentions(m.Body) {
 		if !contains(m.To, tag) {

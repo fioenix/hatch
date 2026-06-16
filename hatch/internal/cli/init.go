@@ -55,10 +55,16 @@ func newInitCmd() *cobra.Command {
 				scope = "local override"
 			}
 
+			_, statErr := os.Stat(ssot.Root)
+			exists := statErr == nil
 			// Scaffold unless it already exists and we're only wiring a client.
-			if _, statErr := os.Stat(ssot.Root); statErr == nil && len(clients) > 0 && !force {
+			switch {
+			case exists && len(clients) > 0 && !force:
 				fmt.Fprintf(out, "Workspace %s đã tồn tại — bỏ qua scaffold, chỉ set up client.\n", ssot.Root)
-			} else {
+			case dryRun:
+				// --dry-run must not touch disk: preview the scaffold instead.
+				fmt.Fprintf(out, "[dry-run] would create %s [%s] (workflow=%s)\n", ssot.Root, scope, workflow)
+			default:
 				l, written, err := scaffold.Init(scaffold.Options{Dir: absScaffold, Workflow: workflow, Force: force})
 				if err != nil {
 					return err
@@ -70,6 +76,10 @@ func newInitCmd() *cobra.Command {
 			}
 
 			if len(clients) == 0 {
+				return nil
+			}
+			if dryRun && !exists {
+				fmt.Fprintln(out, "[dry-run] client setup preview cần workspace có sẵn — chạy thật để scaffold trước.")
 				return nil
 			}
 
