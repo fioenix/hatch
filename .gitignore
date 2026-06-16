@@ -10,3 +10,4 @@ promo/
 /.hatch/ledger/
 /.hatch/compiled/
 /.hatch/mcp/
+/.hatch/logs/
