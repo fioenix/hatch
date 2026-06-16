@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
@@ -34,7 +35,8 @@ type chat struct {
 	counts   map[string]int
 	sel      int
 	msgs     viewport.Model
-	follow   bool // tail: stick to newest message
+	md       *glamour.TermRenderer // markdown renderer for message bodies
+	follow   bool                  // tail: stick to newest message
 	showHelp bool
 	w, h     int
 	ready    bool
@@ -86,24 +88,24 @@ func (c *chat) renderMessages() string {
 	if err != nil || len(msgs) == 0 {
 		return dim.Render("(thread trống)")
 	}
-	wrap := lipgloss.NewStyle().Width(max(20, c.msgWidth()-2))
+	rule := dim.Render(strings.Repeat("─", max(8, c.msgWidth()-4)))
 	var b strings.Builder
 	for i, m := range msgs {
 		ts := m.TS
 		if t, e := time.Parse(time.RFC3339Nano, m.TS); e == nil {
-			ts = t.Format("15:04:05")
+			ts = t.Format("15:04")
 		}
-		head := dim.Render(ts) + " " + senderStyle(m.From).Render(m.From)
+		head := senderStyle(m.From).Render(m.From) + "  " + dim.Render(ts)
 		if m.Type != bus.TypeMsg {
-			head += " " + laneSty.Render("["+m.Type+"]")
+			head += " " + laneSty.Render(m.Type)
 		}
 		if len(m.To) > 0 {
-			head += dim.Render(" → " + strings.Join(m.To, ", "))
+			head += dim.Render("  → " + strings.Join(m.To, ", "))
 		}
 		b.WriteString(head + "\n")
-		b.WriteString(wrap.Render(strings.TrimRight(m.Body, "\n")) + "\n")
+		b.WriteString(c.renderBody(m.Body))
 		if i < len(msgs)-1 {
-			b.WriteString("\n")
+			b.WriteString("\n" + rule + "\n")
 		}
 	}
 	return b.String()
@@ -124,7 +126,28 @@ func (c *chat) chanWidth() int {
 
 func (c *chat) layout() {
 	c.msgs = viewport.New(c.msgWidth(), max(3, c.h-5))
+	// Markdown renderer sized to the message pane — renders code blocks,
+	// headings, bold, lists like a real chat client.
+	if r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(max(20, c.msgWidth()-4)),
+	); err == nil {
+		c.md = r
+	}
 	c.ready = true
+}
+
+// renderBody renders a message body as markdown, falling back to plain text.
+func (c *chat) renderBody(body string) string {
+	body = strings.TrimRight(body, "\n")
+	if c.md == nil {
+		return body
+	}
+	out, err := c.md.Render(body)
+	if err != nil {
+		return body
+	}
+	return strings.Trim(out, "\n")
 }
 
 // mcpTraceCounts returns total tool-calls and failed calls from the MCP log.
@@ -224,12 +247,14 @@ func (c *chat) View() string {
 	header := hdr.Render(project+" — chat") + "  " + live + "  " + dim.Render("(read-only · ? help)")
 
 	var cl strings.Builder
+	nameW := max(6, c.chanWidth()-7) // room for "▸ " + " (N)" inside the box
 	for i, ch := range c.channels {
-		cnt := dim.Render(fmt.Sprintf("(%d)", c.counts[ch]))
+		cnt := dim.Render(fmt.Sprintf(" (%d)", c.counts[ch]))
+		name := trunc(ch, nameW)
 		if i == c.sel {
-			cl.WriteString(selSty.Render("▸ "+ch) + " " + cnt + "\n")
+			cl.WriteString(selSty.Render("▸ "+name) + cnt + "\n")
 		} else {
-			cl.WriteString("  " + ch + " " + cnt + "\n")
+			cl.WriteString("  " + name + cnt + "\n")
 		}
 	}
 	if len(c.channels) == 0 {

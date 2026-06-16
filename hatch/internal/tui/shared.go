@@ -26,6 +26,18 @@ func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// trunc shortens s to n runes with an ellipsis.
+func trunc(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return string(r[:n-1]) + "…"
+}
+
 // paneBox draws a titled, bordered pane sized to w×h (0 = auto).
 func paneBox(focus bool, title, content string, w, h int) string {
 	style := blurred
