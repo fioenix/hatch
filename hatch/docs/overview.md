@@ -79,7 +79,7 @@ MISC           org · doctor
        │
   Tất cả ASYNC kiểu Slack: agent chỉ phản hồi khi nó đang chạy; không ai spawn ai; Hatch không spawn.
        │
-  Người xem bằng hatch board / hatch chat / hatch status; chèn ý kiến bằng hatch msg.
+  Người xem bằng hatch chat (board/watch = alias) / hatch status; chèn ý kiến bằng hatch msg.
 ```
 
 ## 4. Đối ứng squad người (cô đọng)
@@ -92,7 +92,7 @@ MISC           org · doctor
   wiki / ADR / bộ não chung                = kb/  (đọc VÀ ghi qua MCP)
   nhật ký / git log                        = ledger/
   Engineering Manager / Scrum Master       = agent lead/Conductor (LÀ một agent tự lái, không phải Hatch)
-  bảng quan sát của quản lý                = hatch board / chat / status (read-only)
+  bảng quan sát của quản lý                = hatch chat (live, board/watch=alias) / status (read-only)
   ⌖ EM/CEO dashboard (workload/perf/budget)= archived sau hatch_legacy
 ```
 

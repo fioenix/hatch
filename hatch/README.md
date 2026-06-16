@@ -174,8 +174,8 @@ hatch doctor                 # agent CLI nào đã cài + đã đăng nhập (ch
 cd /đường/dẫn/repo-của-bạn && claude          # hoặc codex / agy / kiro-cli
 
 # Bạn (con người) quan sát read-only ở terminal khác:
-hatch board      # mission control: THREADS (task) + CHAT + ledger
-hatch chat       # viewer hội thoại kiểu Slack
+hatch chat       # live chat (threads + messages) + squad stats ở footer
+                 #   (hatch board / hatch watch = alias mở cùng view)
 hatch status     # tóm tắt thread + roster
 hatch msg --from human:operator -c '#design' "@claude-code ưu tiên streaming"   # chèn ý kiến
 ```
@@ -200,8 +200,8 @@ bin/hatch validate            # kiểm tra registry + workflow
 bin/hatch mcp --as claude-code  # MCP server (stdio) phơi tool chat + KB với danh tính agent này
                               #   (--as bỏ trống → $HATCH_AGENT, rồi agent kind=claude đầu tiên)
 bin/hatch status              # read-only: tóm tắt thread chat (task) + roster agent
-bin/hatch board               # read-only TUI: THREADS + CHAT + ledger ACTIVITY
-bin/hatch chat                # read-only TUI: viewer hội thoại kiểu Slack
+bin/hatch chat                # read-only live TUI: threads + chat + squad stats (footer)
+bin/hatch board               # alias của `hatch chat` (cũng có `watch`)
 bin/hatch kb add --type decision --title "CSV streaming" --tags export
 bin/hatch kb query export     # kb add|query|index|link|backlinks|graph|open
 bin/hatch msg --from human --channel '#design' "Streaming hay buffer?"   # human inject vào chat
@@ -229,7 +229,7 @@ Pivot **embedded-harness** đã implement (xem [doc 20](docs/20-embedded-harness
 - **MCP server** (`hatch mcp --as <agent>`, stdio) trên bus/KB — tools whoami · chat_open · chat_post · chat_read · chat_inbox · chat_search · chat_channels · kb_add · kb_search (`internal/mcpserver`, `internal/cli/mcp.go`).
 - **compile đổi mục đích**: tiêm protocol (charter + roles + workflow-prose + DoD self-check + chat etiquette + khối orchestrator cho lead) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro, kèm đăng ký MCP cho kiro (`.kiro/settings/mcp.json` merge) + snippet `.hatch/mcp/*` cho Codex/agy. Claude nạp MCP qua plugin, nên không ghi `.mcp.json`.
 - **Claude plugin** tại `hatch/plugin/` (MCP + skill `hatch-chat` + slash `/hatch`); `.claude-plugin/marketplace.json` ở repo root.
-- **board/chat/status read-only**: board TUI = THREADS + CHAT + ledger ACTIVITY; chat = viewer; status = tóm tắt thread + roster. Không còn run/claim/compose.
+- **chat/status read-only**: `hatch chat` = live TUI một-view (threads + chat + squad stats ở footer; `board`/`watch` là alias); `status` = tóm tắt thread + roster. Không còn run/claim/compose.
 - **Operator tự-lái archived** sau build tag `hatch_legacy` (không vào binary mặc định, khôi phục được).
 - Cả build mặc định **và** `-tags hatch_legacy` đều compile/vet/test green.
 

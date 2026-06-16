@@ -8,14 +8,15 @@ import (
 
 func newBoardCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "board",
-		Short: "Read-only mission-control TUI (threads + chat + ledger)",
+		Use:     "board",
+		Aliases: []string{"watch"},
+		Short:   "Alias for `hatch chat` (live chat + squad stats)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
 			if err != nil {
 				return err
 			}
-			_, err = tui.New(ws).Run()
+			_, err = tui.NewChat(ws).Run()
 			return err
 		},
 	}

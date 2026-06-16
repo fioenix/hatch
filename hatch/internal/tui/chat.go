@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"bufio"
 	"fmt"
 	"hash/fnv"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -23,13 +25,6 @@ func senderStyle(name string) lipgloss.Style {
 	_, _ = h.Write([]byte(name))
 	c := senderPalette[int(h.Sum32())%len(senderPalette)]
 	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(c))
-}
-
-func maxi(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 type chat struct {
@@ -64,7 +59,7 @@ func (c *chat) reload() {
 		}
 	}
 	if c.sel >= len(chs) {
-		c.sel = maxi(0, len(chs)-1)
+		c.sel = max(0, len(chs)-1)
 	}
 	off := c.msgs.YOffset
 	c.msgs.SetContent(c.renderMessages())
@@ -91,7 +86,7 @@ func (c *chat) renderMessages() string {
 	if err != nil || len(msgs) == 0 {
 		return dim.Render("(thread trống)")
 	}
-	wrap := lipgloss.NewStyle().Width(maxi(20, c.msgWidth()-2))
+	wrap := lipgloss.NewStyle().Width(max(20, c.msgWidth()-2))
 	var b strings.Builder
 	for i, m := range msgs {
 		ts := m.TS
@@ -114,7 +109,7 @@ func (c *chat) renderMessages() string {
 	return b.String()
 }
 
-func (c *chat) msgWidth() int { return maxi(20, c.w-c.chanWidth()-4) }
+func (c *chat) msgWidth() int { return max(20, c.w-c.chanWidth()-4) }
 
 func (c *chat) chanWidth() int {
 	w := c.w / 4
@@ -128,8 +123,30 @@ func (c *chat) chanWidth() int {
 }
 
 func (c *chat) layout() {
-	c.msgs = viewport.New(c.msgWidth(), maxi(3, c.h-4))
+	c.msgs = viewport.New(c.msgWidth(), max(3, c.h-5))
 	c.ready = true
+}
+
+// mcpTraceCounts returns total tool-calls and failed calls from the MCP log.
+func mcpTraceCounts(path string) (calls, errs int) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		calls++
+		if strings.Contains(string(line), `"ok":false`) {
+			errs++
+		}
+	}
+	return calls, errs
 }
 
 func (c *chat) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -218,16 +235,33 @@ func (c *chat) View() string {
 	if len(c.channels) == 0 {
 		cl.WriteString(dim.Render("  (chưa có thread)"))
 	}
-	chanBox := paneBox(false, "THREADS", cl.String(), c.chanWidth(), c.h-4)
+	chanBox := paneBox(false, "THREADS", cl.String(), c.chanWidth(), c.h-5)
 	title := "—"
 	if c.current() != "" {
 		title = "#" + c.current()
 	}
-	msgBox := paneBox(true, title, c.msgs.View(), c.msgWidth(), c.h-4)
+	msgBox := paneBox(true, title, c.msgs.View(), c.msgWidth(), c.h-5)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, chanBox, msgBox)
 
-	foot := dim.Render("[ ] thread · ↑↓ scroll · G newest · f follow · ? help · q quit")
-	return header + "\n" + body + "\n" + foot
+	stats := laneSty.Render("◆ ") + dim.Render(c.statsLine())
+	keys := dim.Render("[ ] thread · ↑↓ scroll · G newest · f follow · ? help · q quit")
+	return header + "\n" + body + "\n" + stats + "\n" + keys
+}
+
+// statsLine summarises the squad (the numbers the old board showed): threads,
+// total messages, roster size, and MCP tool-call activity from the trace log.
+func (c *chat) statsLine() string {
+	msgs := 0
+	for _, ch := range c.channels {
+		msgs += c.counts[ch]
+	}
+	calls, errs := mcpTraceCounts(c.ws.Layout.MCPLog())
+	s := fmt.Sprintf("%d threads · %d msgs · %d agents · %d MCP calls",
+		len(c.channels), msgs, len(c.ws.Registry.Agents), calls)
+	if errs > 0 {
+		s += fmt.Sprintf(" (%d err)", errs)
+	}
+	return s
 }
 
 func (c *chat) helpView() string {
@@ -247,5 +281,5 @@ func (c *chat) helpView() string {
 	}
 	b.WriteString("\n" + dim.Render("Live: tự refresh mỗi giây. Cuộn lên = tạm dừng bám (PAUSED); G hoặc f để bám lại."))
 	b.WriteString("\n" + dim.Render("Read-only — agent post qua Hatch MCP (chat_open/chat_post)."))
-	return focused.Width(maxi(40, c.w-4)).Render(b.String())
+	return focused.Width(max(40, c.w-4)).Render(b.String())
 }
