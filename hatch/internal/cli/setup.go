@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -94,8 +95,29 @@ func newSetupCmd() *cobra.Command {
 					continue
 				}
 				switch kind {
-				case "codex", "agy":
-					// Home-scoped: setupClient writes the $HOME config (repoRoot unused).
+				case "codex":
+					// Home-scoped: setupClient writes ~/.codex/config.toml via `codex mcp add`.
+					if err := setupClient(cmd, ws, "", alias, dryRun); err != nil {
+						return err
+					}
+					// Lifecycle hook: brief codex on session start from the shared chat.
+					if id, ok := agentIDForKind(ws, "codex"); ok {
+						home, _ := os.UserHomeDir()
+						p := filepath.Join(home, ".codex", "hooks.json")
+						cmdStr := "hatch brief --as " + id
+						if dryRun {
+							fmt.Fprintf(out, "[dry-run] codex: would merge SessionStart hook → %s (`%s`)\n", p, cmdStr)
+						} else if added, err := mergeSessionStartHook(p, cmdStr); err != nil {
+							fmt.Fprintf(out, "⚠ codex hook: %v\n", err)
+						} else if added {
+							fmt.Fprintf(out, "✓ codex: SessionStart hook → %s (`%s`)\n", p, cmdStr)
+							fmt.Fprintln(out, "  (Codex sẽ hỏi TRUST hook này ở lần chạy tới — duyệt để nó hoạt động)")
+						} else {
+							fmt.Fprintln(out, "✓ codex: SessionStart hook đã có")
+						}
+					}
+				case "agy":
+					// Home-scoped: setupClient writes ~/.gemini/config/mcp_config.json.
 					if err := setupClient(cmd, ws, "", alias, dryRun); err != nil {
 						return err
 					}
@@ -120,6 +142,55 @@ func newSetupCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&yes, "yes", false, "non-interactive: never prompt (requires --client)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what setup would do without writing")
 	return cmd
+}
+
+// mergeSessionStartHook adds a `command`-type SessionStart hook running cmdStr
+// into a Claude-Code-style hooks.json (the same schema Codex uses), preserving
+// every existing hook. Returns whether it added one (idempotent on cmdStr).
+// Writes atomically via a temp file.
+func mergeSessionStartHook(path, cmdStr string) (bool, error) {
+	root := map[string]any{}
+	if raw, err := os.ReadFile(path); err == nil {
+		if err := json.Unmarshal(raw, &root); err != nil {
+			return false, fmt.Errorf("%s không phải JSON hợp lệ: %w", path, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+	hooks, _ := root["hooks"].(map[string]any)
+	if hooks == nil {
+		hooks = map[string]any{}
+	}
+	groups, _ := hooks["SessionStart"].([]any)
+	// Idempotent: bail if cmdStr is already wired under SessionStart.
+	for _, g := range groups {
+		gm, _ := g.(map[string]any)
+		hs, _ := gm["hooks"].([]any)
+		for _, h := range hs {
+			hm, _ := h.(map[string]any)
+			if s, _ := hm["command"].(string); s == cmdStr {
+				return false, nil
+			}
+		}
+	}
+	groups = append(groups, map[string]any{
+		"hooks": []any{map[string]any{"type": "command", "command": cmdStr, "timeout": 10}},
+	})
+	hooks["SessionStart"] = groups
+	root["hooks"] = hooks
+
+	b, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, err
+	}
+	tmp := path + ".hatch.tmp"
+	if err := os.WriteFile(tmp, append(b, '\n'), 0o644); err != nil {
+		return false, err
+	}
+	return true, os.Rename(tmp, path)
 }
 
 // isInteractive reports whether stdin is a terminal (so we may prompt).
