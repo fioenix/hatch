@@ -2,6 +2,24 @@
 
 Đích cuối là full orchestrator, nhưng triển khai theo 3 phase để **chạy được giá trị ngay từ Phase 1** mà không cần viết code.
 
+## Backlog (post-pivot, embedded-harness)
+
+Việc đã chốt hướng nhưng chưa làm ngay:
+
+- **Epic A — Production release & install dễ (chưa làm).** Mục tiêu: cài `hatch`
+  dễ như OpenAI codex-plugin-cc. Gồm: `.goreleaser.yaml` (build darwin/linux ×
+  amd64/arm64) · `.github/workflows/release.yml` (tag `v*` → GitHub Release) ·
+  `install.sh` (`curl|sh` detect os/arch) · plugin self-contained (launcher
+  `${CLAUDE_PLUGIN_ROOT}/bin/hatch-launch.sh` tải binary từ release; `.mcp.json`
+  + `hooks.json` trỏ launcher) · (tùy chọn) Homebrew tap. Không verify local
+  được — nghiệm thu ở release đầu.
+- **agy SessionStart hook (chưa làm — cơ chế nặng).** Khác Codex/Claude: agy
+  hooks là **Python SDK** (`@hooks.on_session_start` trong plugin Antigravity
+  SDK, xem `~/.gemini/config/plugins/google-antigravity-sdk/.../hooks.md`),
+  KHÔNG phải `hooks.json` shell-command. Để auto-brief cần ship một plugin Python
+  gọi `hatch brief --as agy` qua subprocess + cài bằng `agy plugin install`.
+  Trong lúc chờ: agy vẫn tham gia chat đầy đủ qua MCP, chỉ thiếu brief-on-start.
+
 ## Phase 1 — Convention + Docs (chạy được không cần code)
 
 Mọi thứ là file + git + quy ước. Agent tuân theo protocol thủ công; con người (hoặc CC ở vai Conductor) chạy các bước bằng tay.
