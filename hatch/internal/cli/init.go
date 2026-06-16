@@ -233,24 +233,23 @@ func writeKiroAgent(path, agentID string) error {
 	servers["hatch"] = map[string]any{"command": "hatch", "args": []any{"mcp", "--as", agentID}}
 	root["mcpServers"] = servers
 
-	cmdStr := "hatch brief --as " + agentID + " --format text"
 	hooks, _ := root["hooks"].(map[string]any)
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
-	spawn, _ := hooks["agentSpawn"].([]any)
-	found := false
-	for _, h := range spawn {
-		hm, _ := h.(map[string]any)
-		if s, _ := hm["command"].(string); s == cmdStr {
-			found = true
-			break
+	// agentSpawn → brief on start; preToolUse → guard edits to protected files.
+	ensure := func(event string, entry map[string]any) {
+		arr, _ := hooks[event].([]any)
+		for _, h := range arr {
+			hm, _ := h.(map[string]any)
+			if s, _ := hm["command"].(string); s == entry["command"] {
+				return // idempotent
+			}
 		}
+		hooks[event] = append(arr, entry)
 	}
-	if !found {
-		spawn = append(spawn, map[string]any{"command": cmdStr})
-	}
-	hooks["agentSpawn"] = spawn
+	ensure("agentSpawn", map[string]any{"command": "hatch brief --as " + agentID + " --format text"})
+	ensure("preToolUse", map[string]any{"command": "hatch guard", "matcher": "fs_write"})
 	root["hooks"] = hooks
 
 	b, err := json.MarshalIndent(root, "", "  ")

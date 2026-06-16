@@ -17,7 +17,7 @@ func TestMergeSessionStartHook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	added, err := mergeSessionStartHook(p, "hatch brief --as codex")
+	added, err := mergeClaudeHook(p, "SessionStart", "", "hatch brief --as codex")
 	if err != nil || !added {
 		t.Fatalf("first merge: added=%v err=%v", added, err)
 	}
@@ -40,14 +40,14 @@ func TestMergeSessionStartHook(t *testing.T) {
 	}
 
 	// Idempotent: second merge is a no-op.
-	added, err = mergeSessionStartHook(p, "hatch brief --as codex")
+	added, err = mergeClaudeHook(p, "SessionStart", "", "hatch brief --as codex")
 	if err != nil || added {
 		t.Fatalf("second merge should be no-op: added=%v err=%v", added, err)
 	}
 
 	// Creates the file when absent.
 	p2 := filepath.Join(dir, "new", "hooks.json")
-	if added, err := mergeSessionStartHook(p2, "hatch brief"); err != nil || !added {
+	if added, err := mergeClaudeHook(p2, "SessionStart", "", "hatch brief"); err != nil || !added {
 		t.Fatalf("create-when-absent: added=%v err=%v", added, err)
 	}
 }

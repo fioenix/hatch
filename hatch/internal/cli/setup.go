@@ -100,20 +100,29 @@ func newSetupCmd() *cobra.Command {
 					if err := setupClient(cmd, ws, "", alias, dryRun); err != nil {
 						return err
 					}
-					// Lifecycle hook: brief codex on session start from the shared chat.
+					// Lifecycle hooks: brief on session start + guard edits to protected
+					// files (PreToolUse). Codex shares Claude's hooks.json schema.
 					if id, ok := agentIDForKind(ws, "codex"); ok {
 						home, _ := os.UserHomeDir()
 						p := filepath.Join(home, ".codex", "hooks.json")
-						cmdStr := "hatch brief --as " + id
 						if dryRun {
-							fmt.Fprintf(out, "[dry-run] codex: would merge SessionStart hook → %s (`%s`)\n", p, cmdStr)
-						} else if added, err := mergeSessionStartHook(p, cmdStr); err != nil {
-							fmt.Fprintf(out, "⚠ codex hook: %v\n", err)
-						} else if added {
-							fmt.Fprintf(out, "✓ codex: SessionStart hook → %s (`%s`)\n", p, cmdStr)
-							fmt.Fprintln(out, "  (Codex sẽ hỏi TRUST hook này ở lần chạy tới — duyệt để nó hoạt động)")
+							fmt.Fprintf(out, "[dry-run] codex: would merge SessionStart(brief) + PreToolUse(guard) hooks → %s\n", p)
 						} else {
-							fmt.Fprintln(out, "✓ codex: SessionStart hook đã có")
+							anyAdded := false
+							for _, h := range []struct{ event, matcher, cmd string }{
+								{"SessionStart", "", "hatch brief --as " + id},
+								{"PreToolUse", "Write|Edit|MultiEdit|NotebookEdit", "hatch guard"},
+							} {
+								if added, err := mergeClaudeHook(p, h.event, h.matcher, h.cmd); err != nil {
+									fmt.Fprintf(out, "⚠ codex %s hook: %v\n", h.event, err)
+								} else if added {
+									anyAdded = true
+								}
+							}
+							fmt.Fprintf(out, "✓ codex: SessionStart(brief) + PreToolUse(guard) hooks → %s\n", p)
+							if anyAdded {
+								fmt.Fprintln(out, "  (Codex sẽ hỏi TRUST hook ở lần chạy tới — duyệt để nó hoạt động)")
+							}
 						}
 					}
 				case "agy":
@@ -158,11 +167,11 @@ func newSetupCmd() *cobra.Command {
 	return cmd
 }
 
-// mergeSessionStartHook adds a `command`-type SessionStart hook running cmdStr
-// into a Claude-Code-style hooks.json (the same schema Codex uses), preserving
-// every existing hook. Returns whether it added one (idempotent on cmdStr).
-// Writes atomically via a temp file.
-func mergeSessionStartHook(path, cmdStr string) (bool, error) {
+// mergeClaudeHook adds a `command`-type hook running cmdStr under the given
+// event into a Claude-Code-style hooks.json (the schema Codex shares),
+// preserving every existing hook. An optional matcher (tool-name regex) scopes
+// PreToolUse-style events. Idempotent on cmdStr within the event; atomic write.
+func mergeClaudeHook(path, event, matcher, cmdStr string) (bool, error) {
 	root := map[string]any{}
 	if raw, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(raw, &root); err != nil {
@@ -175,9 +184,8 @@ func mergeSessionStartHook(path, cmdStr string) (bool, error) {
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
-	groups, _ := hooks["SessionStart"].([]any)
-	// Idempotent: bail if cmdStr is already wired under SessionStart.
-	for _, g := range groups {
+	groups, _ := hooks[event].([]any)
+	for _, g := range groups { // idempotent: bail if cmdStr already wired here
 		gm, _ := g.(map[string]any)
 		hs, _ := gm["hooks"].([]any)
 		for _, h := range hs {
@@ -187,10 +195,13 @@ func mergeSessionStartHook(path, cmdStr string) (bool, error) {
 			}
 		}
 	}
-	groups = append(groups, map[string]any{
+	group := map[string]any{
 		"hooks": []any{map[string]any{"type": "command", "command": cmdStr, "timeout": 10}},
-	})
-	hooks["SessionStart"] = groups
+	}
+	if matcher != "" {
+		group["matcher"] = matcher
+	}
+	hooks[event] = append(groups, group)
 	root["hooks"] = hooks
 
 	b, err := json.MarshalIndent(root, "", "  ")
@@ -222,6 +233,12 @@ func writeAgyHook(path, cmdStr string) error {
 	root["hatch"] = map[string]any{
 		"PreInvocation": []any{
 			map[string]any{"type": "command", "command": cmdStr, "timeout": 10},
+		},
+		"PreToolUse": []any{
+			map[string]any{
+				"matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+				"hooks":   []any{map[string]any{"type": "command", "command": "hatch guard --format agy", "timeout": 10}},
+			},
 		},
 	}
 	b, err := json.MarshalIndent(root, "", "  ")

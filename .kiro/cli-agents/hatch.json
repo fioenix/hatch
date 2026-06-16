@@ -5,6 +5,12 @@
       {
         "command": "hatch brief --as kiro --format text"
       }
+    ],
+    "preToolUse": [
+      {
+        "command": "hatch guard",
+        "matcher": "fs_write"
+      }
     ]
   },
   "includeMcpJson": true,

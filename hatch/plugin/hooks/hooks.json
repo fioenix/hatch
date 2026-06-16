@@ -1,5 +1,5 @@
 {
-  "description": "On session start, brief the agent with its Hatch inbox + open task threads.",
+  "description": "SessionStart briefs the agent from the Hatch chat; PreToolUse guards edits to policy-protected files.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,6 +7,18 @@
           {
             "type": "command",
             "command": "hatch brief",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hatch guard",
             "timeout": 10
           }
         ]
