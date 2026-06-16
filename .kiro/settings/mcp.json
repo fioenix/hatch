@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "hatch": {
+      "args": [
+        "mcp",
+        "--as",
+        "kiro"
+      ],
+      "command": "hatch"
+    }
+  }
+}

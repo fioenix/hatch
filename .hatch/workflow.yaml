@@ -1,0 +1,52 @@
+version: 1
+template: scrum
+
+lanes:
+  - id: backlog
+  - id: in-progress
+    wip-limit: 2
+  - id: review
+  - id: done
+  - id: blocked
+    side: true
+
+transitions:
+  - from: backlog
+    to: in-progress
+    by: [implementer, tester, architect]
+    action: claim
+  - from: in-progress
+    to: review
+    by: [implementer, tester]
+    action: handoff
+    gates: [tests-pass, lint-clean, handoff-note]
+  - from: review
+    to: done
+    by: [reviewer]
+    action: done
+    gates: [dod-met, no-self-review, human-merge]
+  - from: review
+    to: in-progress
+    by: [reviewer]
+    action: review        # changes-requested
+  - from: "*"
+    to: blocked
+    by: ["*"]
+    action: block
+  - from: blocked
+    to: in-progress
+    by: ["*"]
+    action: unblock
+
+gates:
+  tests-pass:    { type: command, run: "make test" }
+  lint-clean:    { type: command, run: "make lint" }
+  dod-met:       { type: checklist, ref: protocol/definition-of-done.md }
+  handoff-note:  { type: required-field, field: handoff }
+  no-self-review: { type: policy, ref: no_self_review }
+  human-merge:   { type: human-gate }
+
+ceremonies:
+  planning:       { by: conductor, trigger: manual }
+  standup-digest: { by: conductor, trigger: daily }
+  retro:          { by: conductor, trigger: end-of-sprint, actions: [compact-ledger, promote-kb] }

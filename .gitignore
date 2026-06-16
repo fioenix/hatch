@@ -4,6 +4,9 @@ node_modules/
 __pycache__/
 promo/
 
-# Hatch local workspace (per-developer board/ledger/kb state). The compiled
-# surfaces (CLAUDE.md/AGENTS.md/GEMINI.md) and .kiro/ are committed normally.
-/.hatch/
+# Hatch local workspace runtime (the .hatch SSOT + kb/ are committed)
+/.hatch/board/
+/.hatch/bus/
+/.hatch/ledger/
+/.hatch/compiled/
+/.hatch/mcp/
