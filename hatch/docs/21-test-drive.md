@@ -165,3 +165,38 @@ rm -f .hatch/bus/threads/reverse-string.md .hatch/logs/mcp.jsonl
 | `hatch chat` / `hatch trace` trống | Chưa agent nào gọi tool; làm bước 3 trước |
 | Guard không chặn | `hatch doctor` xem HOOK; guard fail-open nên nếu agent dùng tool lạ sẽ allow |
 | Muốn thêm agent 3 (agy/kiro) | Đăng nhập (`agy`, `kiro-cli login`); kiro chạy `kiro-cli --agent hatch` |
+
+---
+
+## Phụ lục — test tự động (headless, không cần mở terminal tay)
+
+Để verify nhanh bằng LLM thật (CI/dev), drive agent ở chế độ headless. **Cách tin
+cậy nhất:** dùng `claude` làm LLM driver cho bất kỳ identity nào.
+
+```bash
+# 1) Tạo mcp config trỏ identity muốn đóng vai:
+echo '{"mcpServers":{"hatch":{"command":"hatch","args":["mcp","--as","codex"]}}}' > /tmp/as-codex.json
+
+# 2) Worker (identity=codex) đọc inbox + trả lời — KHÔNG bypass quyền, chỉ allow hatch tools:
+claude -p "Call chat_inbox, then chat_post to '#tc-reverse' a Reverse one-liner and @claude-code." \
+  --mcp-config /tmp/as-codex.json --strict-mcp-config \
+  --allowedTools "mcp__hatch__chat_inbox,mcp__hatch__chat_post,mcp__hatch__chat_read"
+
+# 3) Orchestrator (claude-code, qua plugin) mở task / review:
+claude -p "<prompt>" --plugin-dir "$PWD/hatch/plugin" \
+  --allowedTools "mcp__plugin_hatch_hatch__chat_open,mcp__plugin_hatch_hatch__chat_inbox,mcp__plugin_hatch_hatch__chat_read,mcp__plugin_hatch_hatch__chat_post"
+
+# 4) Quan sát: hatch trace   (và hatch thread "#tc-reverse")
+```
+
+**Tool-name namespacing cho `--allowedTools`:**
+- Qua plugin (`--plugin-dir`): `mcp__plugin_hatch_hatch__<tool>`
+- Qua `--mcp-config`: `mcp__hatch__<tool>`
+
+**Lưu ý headless theo agent (đã đo):**
+- `codex exec` gọi MCP tool hay treo headless → dùng claude-as-codex ở trên thay thế.
+- `kiro-cli chat --no-interactive` load MCP **flaky**; `--agent hatch` cần file ở
+  `.kiro/agents/hatch.json` (init đã ghi đúng).
+- `agy -p` cần `--dangerously-skip-permissions` (không có allowlist scoped).
+- Interactive (mở terminal tay) thì các quirk trên **không xảy ra** — đó là cách
+  manual test chính ở trên.
