@@ -28,6 +28,7 @@ func NewRoot() *cobra.Command {
 	// and the knowledge base. Self-driving operator commands (run/plan/watch,
 	// ceremonies, tickets, …) are archived behind the `hatch_legacy` build tag.
 	root.AddCommand(
+		newSetupCmd(),
 		newInitCmd(),
 		newCompileCmd(),
 		newValidateCmd(),

@@ -18,14 +18,17 @@ func newInitCmd() *cobra.Command {
 	var workflow string
 	var force bool
 	var local bool
-	var clients []string
+	var global bool
+	var client string
 	var dryRun bool
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
-		Short: "Create the global ~/.hatch workspace (or a local one with --local); optionally wire a client",
-		Long: "By default `hatch init` creates the user-level workspace at ~/.hatch (like ~/.claude),\n" +
-			"used as the default in every repo. Use --local to create a project .hatch in the\n" +
-			"current repo that OVERRIDES the global one. Pass [dir] to target an explicit directory.",
+		Short: "Set up Hatch in the current repo: create a local .hatch, pick the orchestrator, compile",
+		Long: "Run inside a project repo. Creates a local .hatch (overriding the global\n" +
+			"~/.hatch from `hatch setup`), picks one client as the orchestrator\n" +
+			"(--client, default cc), compiles the surfaces, and wires the project-scoped\n" +
+			"agents (claude .mcp.json, kiro .kiro/) so the squad reaches the chat.\n\n" +
+			"Use --global to target ~/.hatch instead, or pass [dir] for an explicit path.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
@@ -34,70 +37,80 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 
-			// Where the .hatch SSOT lives: explicit dir > --local (cwd) > global (~).
-			scaffoldDir := ""
+			// Where the .hatch SSOT lives: explicit dir > --global (~) > local (cwd).
+			scaffoldDir := "."
+			scope := "local"
 			switch {
 			case len(args) == 1:
 				scaffoldDir = args[0]
-			case local:
-				scaffoldDir = "."
-			default:
+			case global:
 				g := paths.GlobalRoot()
 				if g == "" {
-					return fmt.Errorf("cannot resolve home dir for ~/.hatch; use --local or pass a dir")
+					return fmt.Errorf("cannot resolve home dir for ~/.hatch; pass a dir")
 				}
 				scaffoldDir = filepath.Dir(g) // parent of ~/.hatch
+				scope = "global (~/.hatch)"
 			}
 			absScaffold, _ := filepath.Abs(scaffoldDir)
 			ssot := paths.At(absScaffold)
-			scope := "global (~/.hatch)"
-			if local || len(args) == 1 {
-				scope = "local override"
-			}
 
 			_, statErr := os.Stat(ssot.Root)
 			exists := statErr == nil
-			// Scaffold unless it already exists and we're only wiring a client.
 			switch {
-			case exists && len(clients) > 0 && !force:
-				fmt.Fprintf(out, "Workspace %s đã tồn tại — bỏ qua scaffold, chỉ set up client.\n", ssot.Root)
 			case dryRun:
-				// --dry-run must not touch disk: preview the scaffold instead.
-				fmt.Fprintf(out, "[dry-run] would create %s [%s] (workflow=%s)\n", ssot.Root, scope, workflow)
+				if exists {
+					fmt.Fprintf(out, "[dry-run] workspace %s đã tồn tại — would skip scaffold\n", ssot.Root)
+				} else {
+					fmt.Fprintf(out, "[dry-run] would create %s [%s] (workflow=%s)\n", ssot.Root, scope, workflow)
+				}
+				fmt.Fprintf(out, "[dry-run] orchestrator=%s, then compile + wire project-scoped agents (claude/kiro).\n", client)
+				return nil
+			case exists && !force:
+				fmt.Fprintf(out, "Workspace %s đã tồn tại — bỏ qua scaffold.\n", ssot.Root)
 			default:
 				l, written, err := scaffold.Init(scaffold.Options{Dir: absScaffold, Workflow: workflow, Force: force})
 				if err != nil {
 					return err
 				}
 				fmt.Fprintf(out, "Created %s [%s] (%d files, workflow=%s)\n", l.Root, scope, len(written), workflow)
-				if len(clients) == 0 {
-					fmt.Fprintln(out, "Next: edit charter.md + registry.yaml, then `hatch compile` (hoặc `hatch init --client cc`).")
-				}
 			}
 
-			if len(clients) == 0 {
-				return nil
-			}
-			if dryRun && !exists {
-				fmt.Fprintln(out, "[dry-run] client setup preview cần workspace có sẵn — chạy thật để scaffold trước.")
-				return nil
-			}
-
-			// Load that workspace; compiled outputs + client config go to the
-			// current repo (cwd), even when the SSOT is the global ~/.hatch.
+			// Load workspace; compiled surfaces + project client configs land in cwd.
 			ws, err := config.Load(ssot)
 			if err != nil {
 				return err
 			}
 			ws.OutputRoot = cwd
-			if !dryRun {
-				if _, _, err := compile.Run(ws); err != nil {
-					return fmt.Errorf("compile: %w", err)
-				}
-				fmt.Fprintf(out, "Compiled surfaces + MCP registration vào %s.\n", cwd)
+
+			// Pick the orchestrator (the conductor seat) from --client.
+			kind, ok := resolveClientKind(client)
+			if !ok {
+				return fmt.Errorf("unknown --client %q (use: cc | codex | agy | kiro)", client)
 			}
-			for _, c := range splitClients(clients) {
-				if err := setupClient(cmd, ws, cwd, c, dryRun); err != nil {
+			leadID, ok := agentIDForKind(ws, kind)
+			if !ok {
+				return fmt.Errorf("no %s-kind agent in registry.yaml — add one, then re-run", kind)
+			}
+			if ws.Registry.Orchestrator != leadID {
+				if err := setRegistryOrchestrator(ssot.Registry(), leadID); err != nil {
+					return fmt.Errorf("set orchestrator: %w", err)
+				}
+				ws.Registry.Orchestrator = leadID
+			}
+			fmt.Fprintf(out, "Orchestrator: %s (%s) — orchestrator block vào surface của nó.\n", leadID, kind)
+
+			if _, _, err := compile.Run(ws); err != nil {
+				return fmt.Errorf("compile: %w", err)
+			}
+			fmt.Fprintf(out, "Compiled surfaces + MCP registration vào %s.\n", cwd)
+
+			// Wire the project-scoped agents present in the roster (claude .mcp.json,
+			// kiro .kiro/). codex/agy are home-scoped — wired once by `hatch setup`.
+			for _, k := range []string{"claude", "kiro"} {
+				if _, ok := agentIDForKind(ws, k); !ok {
+					continue
+				}
+				if err := setupClient(cmd, ws, cwd, k, dryRun); err != nil {
 					return err
 				}
 			}
@@ -107,11 +120,39 @@ func newInitCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflow, "workflow", "w", "scrum",
 		"workflow template: "+strings.Join(scaffold.WorkflowTemplates, " | "))
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing .hatch")
-	cmd.Flags().BoolVar(&local, "local", false, "create a project .hatch in the current repo (overrides ~/.hatch)")
-	cmd.Flags().StringSliceVar(&clients, "client", nil,
-		"set up MCP for a client and wire it into the current repo: cc | codex | agy | kiro (repeatable / comma-separated)")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what --client setup would do without writing")
+	cmd.Flags().BoolVar(&local, "local", true, "create the .hatch in the current repo (default; overrides ~/.hatch)")
+	cmd.Flags().BoolVar(&global, "global", false, "target the global ~/.hatch instead of a local .hatch")
+	cmd.Flags().StringVar(&client, "client", "cc", "client to seat as orchestrator: cc | codex | agy | kiro")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what init would do without writing")
+	_ = local // --local is the default; kept for backward compatibility
 	return cmd
+}
+
+// setRegistryOrchestrator writes/updates the top-level `orchestrator:` key in
+// registry.yaml via a targeted text edit, preserving all comments. It replaces an
+// existing line or inserts one right after the `version:` line.
+func setRegistryOrchestrator(path, agentID string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(raw), "\n")
+	newLine := "orchestrator: " + agentID
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "orchestrator:") {
+			lines[i] = newLine
+			return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+		}
+	}
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "version:") {
+			rest := append([]string{newLine}, lines[i+1:]...)
+			lines = append(lines[:i+1], rest...)
+			return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+		}
+	}
+	// No version line — prepend.
+	return os.WriteFile(path, []byte(newLine+"\n"+string(raw)), 0o644)
 }
 
 // splitClients flattens comma-separated values inside the repeatable flag.

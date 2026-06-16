@@ -122,53 +122,48 @@ export PATH="$(go env GOPATH)/bin:$PATH"   # nếu chưa có
 hatch --version
 ```
 
-### Bước 2 — Khởi tạo workspace (global mặc định, local override)
+### Bước 2 — Setup máy một lần: `hatch setup`
 
-`.hatch` phân tầng giống `~/.claude` của Claude Code: **một bản global ở `~/.hatch` làm mặc định**, và mỗi repo có thể tạo **`.hatch` local để override**.
-
-```bash
-hatch init -w scrum          # tạo ~/.hatch (GLOBAL, dùng chung mọi repo). 8 template:
-                             #   scrum kanban spec-first lite dual-track shape-up stage-gate incident
-#   → ~/.hatch (SSOT): charter.md · roles/ · registry.yaml · workflow.yaml · kb/ · ledger/
-
-# Tùy chọn: override riêng cho một repo
-cd /đường/dẫn/repo-của-bạn
-hatch init --local -w scrum  # tạo ./.hatch trong repo này, đè lên global
-```
-
-Cơ chế resolve: lệnh `hatch` tìm `.hatch` local (đi ngược lên từ thư mục hiện tại); không có thì dùng `~/.hatch` global. Đặt `HATCH_HOME` để đổi vị trí global. Sửa `charter.md` (sản phẩm) + `registry.yaml` (ai giữ vai gì) cho đúng đội.
-
-### Bước 3 — Compile SSOT → surfaces + đăng ký MCP
+Chạy **một lần cho mỗi máy**. `hatch setup` tạo workspace global `~/.hatch` (mặc định cho mọi repo) và wire các coding-agent CLI mà MCP config của chúng nằm ở `$HOME` (`codex`, `agy`) cùng plugin Claude Code:
 
 ```bash
-hatch compile
-#   → CLAUDE.md · AGENTS.md · GEMINI.md · .kiro/steering/  (protocol prose cho từng agent)
-#   → .mcp.json · .kiro/settings/mcp.json (merge)  + .hatch/mcp/* (snippet codex/agy)
-hatch validate               # kiểm tra registry + workflow
-hatch doctor                 # agent CLI nào đã cài + đã đăng nhập (chỉ gọi lệnh auth, KHÔNG quét thư mục creds)
+hatch setup                       # có terminal → hỏi chọn client; --dry-run để xem trước
+hatch setup --client cc,codex,agy # non-interactive (CI/script); --yes để chắc chắn không hỏi
 ```
 
-### Bước 4 — Nối client vào MCP bằng một lệnh: `hatch init --client`
-
-Thay vì dán config thủ công, để Hatch set up đúng cho từng client. Lệnh này compile rồi ghi đăng ký MCP vào đúng nơi client đó đọc (chạy được cả khi `.hatch` đã có; thêm `--dry-run` để xem trước):
-
-```bash
-hatch init --client cc       # Claude Code: ghi project .mcp.json + in hướng dẫn /plugin install
-hatch init --client codex    # Codex: gọi `codex mcp add hatch -- hatch mcp --as codex` (→ ~/.codex/config.toml)
-hatch init --client agy      # Antigravity CLI: merge ~/.gemini/config/mcp_config.json (HOME-level, runtime mới)
-hatch init --client kiro     # Kiro: ghi .kiro/settings/mcp.json
-hatch init --client cc,codex # nhiều client một lần
-```
-
-- **`cc`** — ngoài `.mcp.json` (project-scope, đủ để chạy), gói **plugin** Claude Code (MCP + skill `hatch-chat` + slash `/hatch`) cài qua marketplace:
+- **`cc`** — in hướng dẫn cài **plugin** Claude Code (MCP + skill `hatch-chat` + `/hatch`):
   ```
   /plugin marketplace add fioenix/overclaud
   /plugin install hatch@hatch
   ```
-  (hoặc dev: `claude --plugin-dir /đường/dẫn/overclaud/hatch/plugin`)
-- **`codex`** — cần `codex` trên PATH để tự ghi; nếu không, lệnh in sẵn khối để dán vào `~/.codex/config.toml`.
-- **`agy`** — Antigravity CLI (khác Gemini CLI legacy) nạp MCP **chỉ từ file HOME-level riêng**: `~/.gemini/config/mcp_config.json` (cũ: `~/.gemini/antigravity-cli/mcp_config.json`, nay symlink). Project-local `.antigravitycli/mcp_config.json` bị bỏ qua ([issue #60](https://github.com/google-antigravity/antigravity-cli/issues/60)). `--client agy` chỉ ghi khi bạn chủ động chạy; merge giữ nguyên server khác.
-- Mọi client đều dùng đúng danh tính `--as <agent-id>` lấy từ `registry.yaml`, nên orchestrator có thể là Claude, Codex hay agy tùy bạn gán vai `conductor`.
+- **`codex`** — gọi `codex mcp add hatch -- hatch mcp --as codex` (→ `~/.codex/config.toml`); cần `codex` trên PATH.
+- **`agy`** — Antigravity CLI (khác Gemini CLI legacy) nạp MCP **chỉ từ file HOME-level**: `~/.gemini/config/mcp_config.json` (cũ: `~/.gemini/antigravity-cli/mcp_config.json`, nay symlink). Project-local bị bỏ qua ([issue #60](https://github.com/google-antigravity/antigravity-cli/issues/60)).
+- **`kiro`** — project-scoped → không wire ở đây, để `hatch init` lo trong repo.
+
+Vì `codex`/`agy` chạy ở thư mục bạn mở, chúng tự dùng `.hatch` local của repo (qua cwd resolution) và fallback `~/.hatch` global — nên wire một lần là dùng được ở mọi repo, không lỗi.
+
+### Bước 3 — Vào repo: `hatch init`
+
+Chạy **trong repo dự án**. `hatch init` tạo `.hatch` **local** (đè global), chọn **một client làm orchestrator** (`--client`, mặc định `cc`), compile surfaces, rồi wire các agent project-scoped (`claude` `.mcp.json`, `kiro` `.kiro/settings/mcp.json`) để cả squad với tới chat:
+
+```bash
+cd /đường/dẫn/repo-của-bạn
+hatch init                   # orchestrator = Claude Code (mặc định); .hatch local
+hatch init --client codex    # orchestrator = Codex → khối orchestrator vào AGENTS.md
+hatch init -w kanban         # đổi workflow template (8 loại); --global để nhắm ~/.hatch
+```
+
+`--client` ghi `orchestrator: <agent-id>` vào `registry.yaml` (giữ nguyên comment) và compile đặt khối orchestrator vào surface của client đó. Các agent còn lại là team mà orchestrator điều phối qua chat. Sửa `charter.md` (sản phẩm) + `registry.yaml` (ai giữ vai gì) cho đúng đội rồi chạy lại `hatch compile`.
+
+Cơ chế resolve: lệnh `hatch` tìm `.hatch` local (đi ngược lên từ cwd); không có thì dùng `~/.hatch` global. Đặt `HATCH_HOME` để đổi vị trí global.
+
+### Bước 4 — Compile / validate / doctor
+
+```bash
+hatch compile                # SSOT → CLAUDE.md · AGENTS.md · GEMINI.md · .kiro/steering/ + đăng ký MCP
+hatch validate               # kiểm tra registry + workflow
+hatch doctor                 # agent CLI nào đã cài + đã đăng nhập (chỉ gọi lệnh auth, KHÔNG quét thư mục creds)
+```
 
 ### Bước 5 — Làm việc & quan sát
 
@@ -193,8 +188,8 @@ Hatch là CLI viết bằng Go (single binary). Đây là **embedded harness**: 
 ```bash
 ./scripts/onboard.sh         # build + dựng demo workspace để thử ngay — hoặc `make onboard`
 make build                   # → bin/hatch
-bin/hatch init -w scrum       # tạo ~/.hatch GLOBAL (mặc định). --local: tạo ./.hatch override trong repo
-bin/hatch init --client codex # set up MCP cho 1 client: cc|codex|agy|kiro (compile vào repo hiện tại; --dry-run xem trước)
+bin/hatch setup               # 1 lần/máy: tạo ~/.hatch global + wire codex/agy/plugin (cc|codex|agy|kiro)
+bin/hatch init --client codex # trong repo: .hatch local + chọn orchestrator (mặc định cc) + compile (--dry-run xem trước)
 bin/hatch compile             # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering
                               #   (protocol prose: workflow + chat etiquette + DoD self-check + khối orchestrator
                               #    cho lead) + đăng ký MCP per-agent (.mcp.json · .kiro/settings/mcp.json merge;

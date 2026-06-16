@@ -62,13 +62,17 @@ type KBConfig struct {
 
 // Registry mirrors spec/registry.schema.md: the team roster and bindings.
 type Registry struct {
-	Version  int         `yaml:"version"`
-	Project  string      `yaml:"project,omitempty"`
-	Roles    []Role      `yaml:"roles"`
-	Agents   []Agent     `yaml:"agents"`
-	Policy   Policy      `yaml:"policy"`
-	Workflow WorkflowRef `yaml:"workflow,omitempty"`
-	KB       KBConfig    `yaml:"kb,omitempty"`
+	Version int    `yaml:"version"`
+	Project string `yaml:"project,omitempty"`
+	// Orchestrator is the agent id that holds the conductor seat for this
+	// workspace; set by `hatch init --client`. Empty = fall back to whichever
+	// agent holds the "conductor" role.
+	Orchestrator string      `yaml:"orchestrator,omitempty"`
+	Roles        []Role      `yaml:"roles"`
+	Agents       []Agent     `yaml:"agents"`
+	Policy       Policy      `yaml:"policy"`
+	Workflow     WorkflowRef `yaml:"workflow,omitempty"`
+	KB           KBConfig    `yaml:"kb,omitempty"`
 }
 
 // AgentByID returns the agent with the given id, if present.

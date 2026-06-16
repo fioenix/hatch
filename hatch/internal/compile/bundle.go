@@ -59,10 +59,18 @@ func readRoleBody(l paths.Layout, role model.Role) string {
 	return stripFrontmatter(string(raw))
 }
 
-// leadAgent returns the squad's orchestrator: the first agent holding the
-// "conductor" role, falling back to the first agent in the roster. This is the
-// agent a user typically opens first; its surface gets the orchestrator block.
+// leadAgent returns the squad's orchestrator: the explicit registry.orchestrator
+// agent (set by `hatch init --client`), else the first agent holding the
+// "conductor" role, else the first agent in the roster. This is the agent a user
+// typically opens first; its surface gets the orchestrator block.
 func leadAgent(ws *config.Workspace) *model.Agent {
+	if id := ws.Registry.Orchestrator; id != "" {
+		for i := range ws.Registry.Agents {
+			if ws.Registry.Agents[i].ID == id {
+				return &ws.Registry.Agents[i]
+			}
+		}
+	}
 	for i := range ws.Registry.Agents {
 		for _, r := range ws.Registry.Agents[i].Roles {
 			if r == "conductor" {

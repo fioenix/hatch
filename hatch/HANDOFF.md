@@ -49,8 +49,14 @@ go build -tags hatch_legacy ./... && go test -tags hatch_legacy ./...  # + opera
 - **Claude plugin** `hatch/plugin/` (MCP + skill `hatch-chat` + `/hatch`) +
   `.claude-plugin/marketplace.json` ở repo root.
 - **board/chat/status read-only** (`internal/tui/`, `internal/cli/status.go`).
-- **`hatch init --client cc|codex|agy|kiro`** — wire MCP cho từng client
-  (`internal/cli/client.go`).
+- **`hatch setup`** — onboarding máy 1 lần: tạo global `~/.hatch` + wire client
+  home-scoped (codex `~/.codex`, agy `~/.gemini`) + plugin Claude. Interactive khi
+  có TTY, hoặc `--client a,b --yes` cho CI. (`internal/cli/setup.go`)
+- **`hatch init [--client cc|codex|agy|kiro]`** — chạy trong repo: tạo `.hatch`
+  **local** (mặc định), chọn 1 client làm **orchestrator** (mặc định cc → ghi
+  `orchestrator: <id>` vào registry.yaml giữ nguyên comment), compile, wire agent
+  project-scoped (claude `.mcp.json`, kiro `.kiro/`). `--global` để nhắm `~/.hatch`.
+  (`internal/cli/init.go`, `client.go`; lead resolve ở `compile/bundle.go`)
 - **Workspace phân tầng**: `~/.hatch` global + `.hatch` local override; output
   compile luôn vào repo hiện tại. (`internal/paths/`, `config.Workspace.Out()`)
 - **Operator tự-lái archived** sau tag `hatch_legacy` (run/plan/watch/tick,
@@ -76,9 +82,10 @@ go build -tags hatch_legacy ./... && go test -tags hatch_legacy ./...  # + opera
    - Kiro: `.kiro/settings/mcp.json`.
 2. **`hatch doctor`** với agent thật đã đăng nhập (chỉ gọi lệnh auth của từng
    CLI, KHÔNG quét thư mục creds — giữ nguyên nguyên tắc này).
-3. **Orchestrator ≠ Claude**: gán `conductor` cho codex/agy trong
-   `registry.yaml`, `hatch compile`, kiểm khối orchestrator vào đúng
-   AGENTS.md/GEMINI.md và agent đó thật sự điều phối qua chat.
+3. **Orchestrator ≠ Claude**: ✅ cơ chế hoá + verify local — `hatch init
+   --client codex` ghi `orchestrator: codex`, compile đặt khối orchestrator vào
+   AGENTS.md (rời khỏi CLAUDE.md). Còn cần xác nhận agent đó **thật sự điều phối
+   qua chat** với CLI thật.
 
 ## 5. Kiến trúc & nơi sửa
 
