@@ -1,114 +1,167 @@
-# 21 — Test drive: hai agent thật trò chuyện qua Hatch
+# 21 — Manual test case: squad nhiều agent thật trên Hatch
 
-Cách chạy thử **thật** để thấy nhiều coding-agent phối hợp qua chat dùng chung.
+Bài test thủ công end-to-end: nhiều coding-agent phối hợp qua chat dùng chung,
+và quan sát chính Hatch bằng `hatch trace`. Làm theo từng bước, tick ☐ khi đạt.
 
-## Mô hình (đọc trước — khác hình dung "tự spawn")
+---
 
-Hatch là **embedded harness**, KHÔNG tự mở terminal/spawn agent (mô hình tự-lái
-đã archive sau `hatch_legacy`). Luồng thật:
+## 0. Mô hình (đọc trước — tránh hiểu nhầm)
 
-1. **Bạn** mở mỗi agent trong một terminal riêng (mỗi agent một session).
-2. Mỗi session đã được wire vào **một chat dùng chung** (qua MCP) + có hook
-   brief-on-start.
-3. **Claude (orchestrator)** mở thread cho task, `@tag` giao việc; agent khác đọc
-   inbox, làm, rồi trả lời **trong thread**.
-4. Bạn xem toàn bộ qua `hatch chat` / `hatch board`.
+Hatch là **embedded harness**, **KHÔNG tự spawn agent** (mô hình tự-lái đã archive).
+Luồng thật:
 
-Đây là phối hợp turn-based do bạn điều nhịp (prompt từng session), không phải tự
-động hoàn toàn — nhưng state (chat/backlog/KB) là **dùng chung thật**.
+- **Bạn** mở mỗi agent trong một terminal riêng.
+- Mỗi session đã được wire vào **một chat dùng chung** (qua MCP) + hook brief-on-start.
+- **Claude (orchestrator)** mở thread cho task, `@tag` giao việc; agent khác đọc
+  inbox, làm, trả lời **trong cùng thread**.
+- Bạn xem qua `hatch chat` và soi chính Hatch qua `hatch trace`.
 
-## Tiền đề
+Đây là phối hợp **turn-based** do bạn điều nhịp (prompt từng session). State
+(chat/backlog/KB) là dùng chung thật.
 
-- `hatch` trên PATH; `hatch setup` đã chạy (wire codex); `hatch init` trong repo.
-- ≥2 agent đã đăng nhập. Kiểm: `hatch doctor` — cột AUTH + MCP/HOOK phải ✓.
-  Bộ chắc ăn nhất: **Claude + Codex** (thường đã authed sẵn).
-- Branch chưa push → Claude nạp plugin bằng `--plugin-dir` (không dùng marketplace).
+Dùng **Claude + Codex** (thường đã đăng nhập). agy/Kiro cần login thêm.
 
-## Smoke test (30 giây, không cần agent)
+---
 
-Xác nhận chat/backlog chạy trước khi mở agent thật:
+## 1. Pre-flight (1 lần)
 
 ```bash
-cd <repo>
-hatch msg --from "human:me" --channel "#smoke" "@codex ping"
-hatch inbox codex          # phải thấy tin trên
-hatch thread "#smoke"      # phải in lại hội thoại
-rm -f .hatch/bus/threads/smoke.md   # dọn
+cd /Users/fioenix/Projects/overclaud      # hoặc repo của bạn
+hatch doctor
 ```
 
-## Live test — 3 terminal
+PASS khi:
+- ☐ `claude` và `codex`: cột **AUTH** = ✓
+- ☐ `codex`: **MCP** ✓ và **HOOK** ✓
+- ☐ dòng cuối `✓ ready`
 
-Mở 3 terminal, đều `cd <repo>` (vd `/Users/fioenix/Projects/overclaud`).
+Nếu codex chưa ✓ MCP/HOOK: `hatch setup --client codex`.
+Nếu chưa có workspace trong repo: `hatch init`.
 
-### Terminal 3 — màn hình theo dõi (mở trước)
+---
+
+## 2. Bố trí 3 terminal
+
+Cả 3 đều `cd` vào repo trước. Vai trò:
+
+| Terminal | Lệnh khởi động | Vai |
+|---|---|---|
+| **T3** (mở trước) | `hatch chat` | màn hình theo dõi (read-only; thoát `q`) |
+| **T1** | `claude --plugin-dir $PWD/hatch/plugin` | orchestrator |
+| **T2** | `codex` | worker |
+
+> Branch chưa push → Claude phải nạp plugin bằng `--plugin-dir`. Khi đã push thì
+> thay bằng `/plugin marketplace add fioenix/overclaud` + `/plugin install hatch@hatch`.
+
+---
+
+## 3. T1 — Claude mở task và giao cho Codex
+
+Trong T1 (sau khi Claude khởi động; nếu hỏi approve MCP server `hatch` → đồng ý),
+dán prompt:
+
+> Bạn là Conductor của squad Hatch. Dùng tool MCP `hatch`:
+> 1. `whoami` xác nhận bạn là claude-code.
+> 2. `chat_open`: title "Reverse string", giao **@codex** viết hàm Go
+>    `Reverse(s string) string` đảo chuỗi Unicode-safe + 1 test; nêu acceptance.
+> 3. Cho tôi biết đã mở channel tên gì.
+
+PASS khi:
+- ☐ Claude gọi `whoami` → `claude-code`
+- ☐ Claude gọi `chat_open` → trả về channel (vd `#reverse-string`)
+- ☐ **T3** hiện thread mới: `claude-code → @codex`
+
+---
+
+## 4. T2 — Codex đọc việc, làm, trả lời
+
+Khởi động `codex`. Lần đầu nó hỏi **TRUST hook** (`hatch brief`, `hatch guard`)
+và/hoặc MCP server `hatch` → **đồng ý hết**. Dán prompt:
+
+> Bạn là codex trong squad Hatch. Dùng tool MCP `hatch`:
+> 1. `chat_inbox` xem việc đang chờ bạn.
+> 2. Làm task (viết hàm + test).
+> 3. `chat_post` kết quả vào ĐÚNG thread, `@claude-code` báo xong.
+
+PASS khi:
+- ☐ Codex gọi `chat_inbox` → thấy task "Reverse string"
+- ☐ Codex `chat_post` kết quả vào đúng thread
+- ☐ **T3** hiện: `codex → @claude-code` trong cùng thread
+
+---
+
+## 5. T1 — Claude review
+
+Dán vào T1:
+
+> Gọi `chat_inbox` rồi `chat_read` thread vừa rồi. Đánh giá kết quả Codex có đạt
+> acceptance không, rồi `chat_post` nhận xét vào thread.
+
+PASS khi:
+- ☐ Claude thấy reply của Codex (chung 1 thread, không copy-paste)
+- ☐ **T3** hiện lượt 3: `claude-code → @codex`
+
+→ Bạn vừa thấy đủ vòng **giao việc → làm → phản hồi** giữa 2 agent thật.
+
+---
+
+## 6. Test guard (governance enforcement)
+
+Dán vào T1 (hoặc T2):
+
+> Sửa file `.hatch/charter.md`, thêm một dòng bất kỳ.
+
+PASS khi:
+- ☐ Tool edit bị **chặn** với lý do kiểu "policy: .hatch/charter.md is protected"
+  (đây là `hatch guard` chạy ở PreToolUse)
+
+---
+
+## 7. Observability — soi chính Hatch
+
+Ở terminal bất kỳ (cùng repo):
 
 ```bash
-hatch chat        # Slack-style, read-only. (hoặc `hatch board`)
+hatch trace                 # mọi tool-call: ai · tool · ✓/✗ · latency
+hatch trace --errors        # chỉ call lỗi (= issue của Hatch để fix)
+hatch doctor                # cuối bảng: "● MCP: N tool-call lỗi gần đây" nếu có
 ```
 
-### Terminal 1 — Claude Code (orchestrator)
+PASS khi:
+- ☐ `hatch trace` liệt kê các call của claude-code + codex từ bước 3–6
+- ☐ Nếu có lỗi, `hatch trace --errors` chỉ ra đúng tool + thông điệp lỗi
+
+> Mẹo: chạy `hatch trace --follow` ở T3 thay cho `hatch chat` nếu muốn nhìn
+> tool-call realtime thay vì hội thoại.
+
+---
+
+## 8. Đối chiếu bằng CLI (tuỳ chọn)
 
 ```bash
-claude --plugin-dir <repo>/hatch/plugin
+hatch status                      # thread (task) + roster
+hatch thread "#reverse-string"    # toàn bộ một thread
+hatch search reverse              # full-text qua chat
 ```
 
-Khi vào, hook `SessionStart` chạy `hatch brief` → Claude thấy inbox + thread mở.
-Dán prompt:
+---
 
-> Mình là Conductor của squad Hatch trên repo này. Tạo một task nhỏ và giao cho
-> Codex qua chat: **viết hàm Go `Reverse(s string) string` đảo ngược chuỗi
-> Unicode-safe, kèm 1 test**. Dùng tool `chat_open` mở thread cho task này,
-> `@codex` trong nội dung, nêu acceptance rõ ràng. Sau đó cho mình biết đã mở
-> thread nào.
-
-→ Claude gọi `chat_open(@codex, …)`. Xem Terminal 3: thread mới xuất hiện.
-
-### Terminal 2 — Codex (worker)
+## 9. Dọn sau test
 
 ```bash
-codex
+# Xoá thread + log test (đều là runtime, đã gitignore — không ảnh hưởng git):
+rm -f .hatch/bus/threads/reverse-string.md .hatch/logs/mcp.jsonl
+# Nếu agent có tạo file code demo trong repo, xoá thủ công.
 ```
 
-Lần đầu Codex sẽ hỏi **TRUST** hook `hatch brief`/`hatch guard` — duyệt. Hook
-brief chạy → Codex thấy task. Nếu không, dán prompt:
+---
 
-> Đọc inbox Hatch của bạn (tool `chat_inbox`), tìm task được giao, làm nó, rồi
-> `chat_post` kết quả vào đúng thread, `@claude-code` để báo xong.
+## Troubleshooting
 
-→ Codex gọi `chat_inbox` → thấy task → viết hàm + test → `chat_post` kết quả.
-Xem Terminal 3: reply của Codex hiện trong thread.
-
-### Terminal 1 — Claude review
-
-> Check inbox/thread, xem Codex trả gì, review kết quả (đạt acceptance chưa?),
-> rồi `chat_post` nhận xét vào thread.
-
-## Kỳ vọng quan sát được (Terminal 3)
-
-```
-#reverse-... · claude-code → @codex   : **task** + acceptance
-#reverse-... · codex → @claude-code   : kết quả + test
-#reverse-... · claude-code → @codex   : review
-```
-
-- Mỗi agent **được brief** khi mở session (thấy việc đang chờ).
-- Hai agent **dùng chung một thread** (state thật, không copy-paste).
-- Thử cho Claude/Codex **sửa `.hatch/charter.md`** → `hatch guard` (PreToolUse)
-  **chặn** (policy.protect).
-
-## Kiểm chứng nhanh bằng CLI (song song)
-
-```bash
-hatch status                 # thread (task) + roster
-hatch search reverse         # full-text qua chat
-hatch thread "#reverse-..."  # toàn bộ một thread
-```
-
-## Trục trặc thường gặp
-
-- **Claude không có tool hatch** → chưa nạp plugin; phải `claude --plugin-dir <repo>/hatch/plugin`.
-- **Codex không chạy hook** → chưa TRUST; chạy lại Codex và duyệt, hoặc xem `~/.codex/hooks.json`.
-- **`hatch brief` rỗng** → chưa có gì trong inbox/thread (bình thường khi mới bắt đầu).
-- **Muốn dùng `/plugin install` thay `--plugin-dir`** → push branch lên GitHub trước.
-- **Thêm agent thứ 3 (agy/kiro)** → cần đăng nhập (`agy`, `kiro-cli login`); agy mở
-  bình thường, kiro chạy `kiro-cli --agent hatch`.
+| Triệu chứng | Xử lý |
+|---|---|
+| Claude không có tool `hatch_*` | Quên `--plugin-dir`; thoát, mở lại đúng lệnh ở bước 2 |
+| Codex báo hook/MCP chưa trust | Duyệt lại trong Codex; kiểm `hatch doctor` (codex MCP/HOOK = ✓) |
+| `hatch chat` / `hatch trace` trống | Chưa agent nào gọi tool; làm bước 3 trước |
+| Guard không chặn | `hatch doctor` xem HOOK; guard fail-open nên nếu agent dùng tool lạ sẽ allow |
+| Muốn thêm agent 3 (agy/kiro) | Đăng nhập (`agy`, `kiro-cli login`); kiro chạy `kiro-cli --agent hatch` |
