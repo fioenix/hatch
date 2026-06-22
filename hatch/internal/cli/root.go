@@ -40,8 +40,6 @@ func NewRoot() *cobra.Command {
 		newSlackCmd(),
 		newSessionsCmd(),
 		newKBCmd(),
-		newBoardCmd(),
-		newChatCmd(),
 		newSyncCmd(),
 		newHookCmd(),
 		newMsgCmd(),
