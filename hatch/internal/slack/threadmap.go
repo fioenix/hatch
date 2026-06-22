@@ -28,6 +28,12 @@ func loadThreadmap(l paths.Layout) *threadmap {
 	return tm
 }
 
+// newMemThreadmap returns a throwaway, in-memory map (no persistence) — used by
+// dry-run so it never touches the real threadmap.json.
+func newMemThreadmap() *threadmap {
+	return &threadmap{fwd: map[string]string{}, rev: map[string]string{}}
+}
+
 func (t *threadmap) tsFor(channel string) (string, bool) { ts, ok := t.fwd[channel]; return ts, ok }
 func (t *threadmap) channelFor(ts string) (string, bool) { ch, ok := t.rev[ts]; return ch, ok }
 
@@ -39,6 +45,9 @@ func (t *threadmap) bind(channel, ts string) error {
 	}
 	t.fwd[channel] = ts
 	t.rev[ts] = channel
+	if t.path == "" {
+		return nil // in-memory map (dry-run): never persist
+	}
 	raw, err := json.MarshalIndent(t.fwd, "", "  ")
 	if err != nil {
 		return err

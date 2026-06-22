@@ -1,6 +1,7 @@
 package slack
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -11,11 +12,13 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/roster"
 )
 
-// poster sends one message to the configured Slack channel. threadTS is "" for
-// a new thread root, or the thread_ts to reply under. It returns the new
-// message's ts. The concrete impl wraps slack.Client; tests use a fake.
+// poster sends one message to the configured Slack channel as the given agent
+// (from). threadTS is "" for a new thread root, or the thread_ts to reply
+// under. displayName/icon are impersonation hints used only when from has no
+// real bot of its own. It returns the new message's ts. The concrete impl
+// holds the per-agent Slack clients; tests use a fake.
 type poster interface {
-	post(threadTS, username, icon, text string) (ts string, err error)
+	post(from, threadTS, displayName, icon, text string) (ts string, err error)
 }
 
 // incoming is a normalised Slack message event, decoupled from slack-go so the
@@ -38,14 +41,20 @@ type Bridge struct {
 	Roster *roster.Store
 	Cfg    Config
 
-	poster poster
-	tm     *threadmap
-	cursor time.Time // newest bus TS already mirrored to Slack
+	poster   poster
+	tm       *threadmap
+	mentions map[string]string // slack bot user-id → agent id (for inbound @mention)
+	cursor   time.Time         // newest bus TS already mirrored to Slack
 }
 
-// NewBridge wires a bridge. tm and p are injected so tests can supply fakes.
-func NewBridge(b *bus.Bus, rs *roster.Store, cfg Config, p poster, tm *threadmap) *Bridge {
-	return &Bridge{Bus: b, Roster: rs, Cfg: cfg, poster: p, tm: tm}
+// NewBridge wires a bridge. p, tm and mentions are injected so tests can supply
+// fakes. mentions maps each agent's Slack bot user-id back to its agent id so a
+// native "<@U…>" mention becomes a routable "@agent".
+func NewBridge(b *bus.Bus, rs *roster.Store, cfg Config, p poster, tm *threadmap, mentions map[string]string) *Bridge {
+	if mentions == nil {
+		mentions = map[string]string{}
+	}
+	return &Bridge{Bus: b, Roster: rs, Cfg: cfg, poster: p, tm: tm, mentions: mentions}
 }
 
 // mirrorOnce posts every bus message newer than the cursor into Slack, skipping
@@ -71,7 +80,7 @@ func (b *Bridge) mirrorOnce(now time.Time) error {
 		if !known {
 			text = "*#" + m.Channel + "*\n" + text // header on the thread root
 		}
-		ts, perr := b.poster.post(threadTS, name, icon, text)
+		ts, perr := b.poster.post(m.From, threadTS, name, icon, text)
 		if perr != nil {
 			return perr
 		}
@@ -94,7 +103,7 @@ func (b *Bridge) handleIncoming(in incoming) error {
 	if in.BotID != "" || in.User == "" || in.SubType != "" {
 		return nil // our own posts, other bots, or system/edit events
 	}
-	text := strings.TrimSpace(in.Text)
+	text := strings.TrimSpace(b.translateMentions(in.Text))
 	if text == "" {
 		return nil
 	}
@@ -157,4 +166,23 @@ func (b *Bridge) tailBus() []model.Message {
 func parseTS(s string) time.Time {
 	t, _ := time.Parse(time.RFC3339Nano, s)
 	return t
+}
+
+// slackMention matches Slack's encoded user mention "<@U123>" or "<@U123|name>".
+var slackMention = regexp.MustCompile(`<@([A-Z0-9]+)(?:\|[^>]*)?>`)
+
+// translateMentions rewrites native Slack bot mentions ("<@Ucodex>") into bus
+// handles ("@codex") so bus.Post routes them to the right teammate. Mentions of
+// real humans (unmapped ids) are left as their raw token.
+func (b *Bridge) translateMentions(text string) string {
+	if len(b.mentions) == 0 {
+		return text
+	}
+	return slackMention.ReplaceAllStringFunc(text, func(tok string) string {
+		m := slackMention.FindStringSubmatch(tok)
+		if agent, ok := b.mentions[m[1]]; ok {
+			return "@" + agent
+		}
+		return tok
+	})
 }

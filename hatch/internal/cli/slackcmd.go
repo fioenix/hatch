@@ -14,13 +14,15 @@ func newSlackCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "slack",
 		Short: "Bridge the squad chat to a Slack channel (mirror out, @tag in)",
-		Long: "Mirrors every squad message into one Slack channel — each agent shown by its own " +
-			"name and icon — and ingests your Slack messages back onto the bus, where `hatch daemon` " +
-			"delivers them. Tag an agent from Slack (\"@codex …\") to wake it like any peer. This is a " +
-			"window into the room, not a controller.\n\n" +
-			"Tokens come from HATCH_SLACK_{BOT_TOKEN,APP_TOKEN,CHANNEL,BOSS} or .hatch/slack/config.json " +
-			"(gitignored — never commit them). The Slack app needs scopes chat:write, chat:write.customize " +
-			"and connections:write, with Socket Mode enabled. Ctrl-C to stop.",
+		Long: "Mirrors every squad message into one Slack channel and ingests your Slack messages " +
+			"back onto the bus, where `hatch daemon` delivers them. Each agent maps to its own Slack " +
+			"app/bot, so it posts and is @mentioned as a real Slack principal; @codex in Slack wakes " +
+			"codex like any peer. This is a window into the room, not a controller.\n\n" +
+			"Setup: one \"hub\" app with Socket Mode (scopes chat:write, chat:write.customize, " +
+			"channels:history, connections:write; subscribe to message.channels) plus one app per agent " +
+			"(scope chat:write), each invited to the channel. Config from HATCH_SLACK_{APP_TOKEN," +
+			"BOT_TOKEN,CHANNEL,BOSS} + HATCH_SLACK_TOKEN_<AGENT>, or .hatch/slack/config.json " +
+			"(gitignored — never commit tokens). Ctrl-C to stop.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
 			if err != nil {
