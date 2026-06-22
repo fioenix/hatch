@@ -9,12 +9,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/config"
 	"github.com/fioenix/overclaud/hatch/internal/model"
+	"github.com/fioenix/overclaud/hatch/internal/roster"
 	"github.com/fioenix/overclaud/hatch/internal/store"
 )
 
@@ -29,17 +31,72 @@ func New(ws *config.Workspace, me, version string) *mcp.Server {
 	s.AddReceivingMiddleware(traceMiddleware(ws.Layout.MCPLog(), me))
 	b := bus.New(ws.Layout)
 	kb := store.NewKB(ws.Layout)
+	rs := roster.New(ws.Layout)
 	roles := rolesOf(ws, me)
+	kindOf := func(id string) string {
+		if a, ok := ws.Registry.AgentByID(id); ok {
+			return a.Kind
+		}
+		return ""
+	}
+	// touch refreshes presence on any activity, so the roster reflects who is
+	// actually around (best-effort; presence errors never fail a tool call).
+	touch := func() { _ = rs.Touch(me) }
 
 	mcp.AddTool(s, &mcp.Tool{Name: "whoami",
 		Description: "Bạn là agent nào trong squad + giữ vai gì. Gọi đầu session."},
 		func(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, whoamiOut, error) {
+			touch()
 			return nil, whoamiOut{Agent: me, Roles: roles}, nil
+		})
+
+	mcp.AddTool(s, &mcp.Tool{Name: "join",
+		Description: "Vào phòng chung của workspace: đăng ký bạn vào roster (online) để đồng đội biết bạn có mặt. Truyền session_id để teammate đánh thức đúng phiên có trí nhớ của bạn. Gọi đầu session, sau whoami."},
+		func(_ context.Context, _ *mcp.CallToolRequest, in joinIn) (*mcp.CallToolResult, joinOut, error) {
+			kind := in.Kind
+			if kind == "" {
+				kind = kindOf(me)
+			}
+			rl := splitCSV(in.Roles)
+			if len(rl) == 0 {
+				rl = roles
+			}
+			m, err := rs.Join(model.Member{ID: me, Kind: kind, Roles: rl, SessionID: in.SessionID, Note: in.Note})
+			if err != nil {
+				return nil, joinOut{}, err
+			}
+			return nil, joinOut{ID: m.ID, Status: m.Status}, nil
+		})
+
+	mcp.AddTool(s, &mcp.Tool{Name: "roster",
+		Description: "Ai đang ở trong phòng: liệt kê thành viên + vai trò + trạng thái (online/idle/suspended/offline) + last-seen. Xem trước khi nhờ việc để biết gọi ai."},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rosterOut, error) {
+			touch()
+			r, err := rs.Effective(time.Now())
+			if err != nil {
+				return nil, rosterOut{}, err
+			}
+			out := rosterOut{}
+			for _, m := range roster.Members(r) {
+				rolesStr := strings.Join(m.Roles, ",")
+				out.Members = append(out.Members, fmt.Sprintf("%s [%s] %s · %s · seen %s", m.ID, m.Kind, rolesStr, m.Status, m.LastSeen))
+			}
+			return nil, out, nil
+		})
+
+	mcp.AddTool(s, &mcp.Tool{Name: "leave",
+		Description: "Rời phòng: đánh dấu bạn offline (sẽ không bị đánh thức nữa cho tới khi join lại)."},
+		func(_ context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, joinOut, error) {
+			if err := rs.Leave(me); err != nil {
+				return nil, joinOut{}, err
+			}
+			return nil, joinOut{ID: me, Status: model.MemberOffline}, nil
 		})
 
 	mcp.AddTool(s, &mcp.Tool{Name: "chat_open",
 		Description: "Mở một thread/topic cho MỘT task: post message gốc vào channel (tạo channel nếu chưa có). Dùng @tag trong body để gọi đồng đội. Trả về channel + id message gốc (= id task)."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in openIn) (*mcp.CallToolResult, postOut, error) {
+			touch()
 			ch := in.Channel
 			if ch == "" {
 				ch = "#" + slug(in.Title)
@@ -58,6 +115,7 @@ func New(ws *config.Workspace, me, version string) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "chat_post",
 		Description: "Brief tiến độ/kết quả hoặc trả lời trong một channel. reply_to = id message gốc để nối vào thread đó. @tag trong body để gọi đồng đội."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in postIn) (*mcp.CallToolResult, postOut, error) {
+			touch()
 			if in.Channel == "" {
 				return nil, postOut{}, fmt.Errorf("channel is required")
 			}
@@ -82,6 +140,7 @@ func New(ws *config.Workspace, me, version string) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "chat_inbox",
 		Description: "Tin nhắn gửi tới bạn (DM/@mention/broadcast) kể từ lần đọc trước. Gọi để 'đọc phòng' trước khi vào việc. mark=true để đánh dấu đã đọc."},
 		func(_ context.Context, _ *mcp.CallToolRequest, in inboxIn) (*mcp.CallToolResult, messagesOut, error) {
+			touch()
 			msgs, err := b.Inbox(me, roles)
 			if err != nil {
 				return nil, messagesOut{}, err

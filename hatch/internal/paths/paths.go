@@ -13,11 +13,13 @@ const Dir = ".hatch"
 
 // Layout names within a .hatch/ directory.
 const (
-	CharterFile  = "charter.md"
-	RegistryFile = "registry.yaml"
-	WorkflowFile = "workflow.yaml"
-	PresenceFile = "presence.json"
-	OncallFile   = "oncall.json"
+	CharterFile          = "charter.md"
+	WorkingAgreementFile = "working-agreement.md"
+	RegistryFile         = "registry.yaml"
+	WorkflowFile         = "workflow.yaml"
+	PresenceFile         = "presence.json"
+	RosterFile           = "roster.json"
+	OncallFile           = "oncall.json"
 
 	RolesDir    = "roles"
 	ContextDir  = "context"
@@ -41,25 +43,27 @@ func (l Layout) path(parts ...string) string {
 	return filepath.Join(append([]string{l.Root}, parts...)...)
 }
 
-func (l Layout) Charter() string         { return l.path(CharterFile) }
-func (l Layout) Registry() string        { return l.path(RegistryFile) }
-func (l Layout) Workflow() string        { return l.path(WorkflowFile) }
-func (l Layout) Roles() string           { return l.path(RolesDir) }
-func (l Layout) Context() string         { return l.path(ContextDir) }
-func (l Layout) KB() string              { return l.path(KBDir) }
-func (l Layout) Board() string           { return l.path(BoardDir) }
-func (l Layout) Lane(name string) string { return l.path(BoardDir, name) }
-func (l Layout) Ledger() string          { return l.path(LedgerDir) }
-func (l Layout) Protocol() string        { return l.path(ProtocolDir) }
-func (l Layout) Compiled() string        { return l.path(CompiledDir) }
-func (l Layout) Logs() string            { return l.path(LogsDir) }
-func (l Layout) MCPLog() string          { return l.path(MCPLogFile) }
-func (l Layout) Manifest() string        { return l.path(ManifestFile) }
-func (l Layout) KBIndex() string         { return l.path(KBIndexFile) }
-func (l Layout) KBMeta() string          { return l.path(KBMetaFile) }
-func (l Layout) Presence() string        { return l.path(PresenceFile) }
-func (l Layout) Oncall() string          { return l.path(OncallFile) }
-func (l Layout) DocTemplates() string    { return l.path("templates", "docs") }
+func (l Layout) Charter() string          { return l.path(CharterFile) }
+func (l Layout) WorkingAgreement() string { return l.path(WorkingAgreementFile) }
+func (l Layout) Registry() string         { return l.path(RegistryFile) }
+func (l Layout) Workflow() string         { return l.path(WorkflowFile) }
+func (l Layout) Roles() string            { return l.path(RolesDir) }
+func (l Layout) Context() string          { return l.path(ContextDir) }
+func (l Layout) KB() string               { return l.path(KBDir) }
+func (l Layout) Board() string            { return l.path(BoardDir) }
+func (l Layout) Lane(name string) string  { return l.path(BoardDir, name) }
+func (l Layout) Ledger() string           { return l.path(LedgerDir) }
+func (l Layout) Protocol() string         { return l.path(ProtocolDir) }
+func (l Layout) Compiled() string         { return l.path(CompiledDir) }
+func (l Layout) Logs() string             { return l.path(LogsDir) }
+func (l Layout) MCPLog() string           { return l.path(MCPLogFile) }
+func (l Layout) Manifest() string         { return l.path(ManifestFile) }
+func (l Layout) KBIndex() string          { return l.path(KBIndexFile) }
+func (l Layout) KBMeta() string           { return l.path(KBMetaFile) }
+func (l Layout) Presence() string         { return l.path(PresenceFile) }
+func (l Layout) Roster() string           { return l.path(RosterFile) }
+func (l Layout) Oncall() string           { return l.path(OncallFile) }
+func (l Layout) DocTemplates() string     { return l.path("templates", "docs") }
 
 // SafeSegment sanitizes s for use as a single path segment, preventing path
 // traversal: only [A-Za-z0-9._-] survive, the rest become '-', and the
