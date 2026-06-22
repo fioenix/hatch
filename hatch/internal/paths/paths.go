@@ -34,7 +34,6 @@ const (
 	RunDir = "run"
 
 	BusDir         = "bus"
-	BoardDir       = "board"
 	RosterFile     = "roster.json"
 	SessionsFile   = "sessions.json"
 	LedgerDir      = "ledger"
@@ -72,22 +71,20 @@ func (l Layout) KBIndex() string          { return l.path(KBIndexFile) }
 func (l Layout) KBMeta() string           { return l.path(KBMetaFile) }
 
 // Runtime (under .hatch/run/, gitignored).
-func (l Layout) Run() string             { return l.path(RunDir) }
-func (l Layout) Bus() string             { return l.run(BusDir) }
-func (l Layout) Board() string           { return l.run(BoardDir) }
-func (l Layout) Lane(name string) string { return l.run(BoardDir, name) }
-func (l Layout) Ledger() string          { return l.run(LedgerDir) }
-func (l Layout) Compiled() string        { return l.run(CompiledDir) }
-func (l Layout) Logs() string            { return l.run(LogsDir) }
-func (l Layout) MCPLog() string          { return l.run(MCPLogFile) }
-func (l Layout) Manifest() string        { return l.run(ManifestFile) }
-func (l Layout) MCPSnippets() string     { return l.run(MCPDir) }
-func (l Layout) Roster() string          { return l.run(RosterFile) }
-func (l Layout) Sessions() string        { return l.run(SessionsFile) }
-func (l Layout) Slack() string           { return l.run(SlackDir) }
-func (l Layout) SlackConfig() string     { return l.run(SlackDir, "config.json") }
-func (l Layout) SlackThreadmap() string  { return l.run(SlackDir, "threadmap.json") }
-func (l Layout) DocTemplates() string    { return l.path("templates", "docs") }
+func (l Layout) Run() string            { return l.path(RunDir) }
+func (l Layout) Bus() string            { return l.run(BusDir) }
+func (l Layout) Ledger() string         { return l.run(LedgerDir) }
+func (l Layout) Compiled() string       { return l.run(CompiledDir) }
+func (l Layout) Logs() string           { return l.run(LogsDir) }
+func (l Layout) MCPLog() string         { return l.run(MCPLogFile) }
+func (l Layout) Manifest() string       { return l.run(ManifestFile) }
+func (l Layout) MCPSnippets() string    { return l.run(MCPDir) }
+func (l Layout) Roster() string         { return l.run(RosterFile) }
+func (l Layout) Sessions() string       { return l.run(SessionsFile) }
+func (l Layout) Slack() string          { return l.run(SlackDir) }
+func (l Layout) SlackConfig() string    { return l.run(SlackDir, "config.json") }
+func (l Layout) SlackThreadmap() string { return l.run(SlackDir, "threadmap.json") }
+func (l Layout) DocTemplates() string   { return l.path("templates", "docs") }
 
 // SafeSegment sanitizes s for use as a single path segment, preventing path
 // traversal: only [A-Za-z0-9._-] survive, the rest become '-', and the
