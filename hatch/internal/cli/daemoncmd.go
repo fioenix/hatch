@@ -12,6 +12,7 @@ import (
 	"github.com/fioenix/overclaud/hatch/internal/bus"
 	"github.com/fioenix/overclaud/hatch/internal/daemon"
 	"github.com/fioenix/overclaud/hatch/internal/roster"
+	"github.com/fioenix/overclaud/hatch/internal/session"
 	"github.com/fioenix/overclaud/hatch/internal/wake"
 )
 
@@ -34,7 +35,11 @@ func newDaemonCmd() *cobra.Command {
 			d := daemon.New(
 				bus.New(ws.Layout),
 				roster.New(ws.Layout),
-				daemon.ExecRunner{RepoRoot: ws.Layout.RepoRoot(), Stdout: out},
+				daemon.ExecRunner{
+					RepoRoot: ws.Layout.RepoRoot(),
+					Stdout:   out,
+					Sessions: session.New(ws.Layout),
+				},
 				wake.Config{},
 			)
 

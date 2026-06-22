@@ -19,6 +19,7 @@ const (
 	WorkflowFile         = "workflow.yaml"
 	PresenceFile         = "presence.json"
 	RosterFile           = "roster.json"
+	SessionsFile         = "sessions.json"
 	OncallFile           = "oncall.json"
 
 	RolesDir    = "roles"
@@ -66,6 +67,7 @@ func (l Layout) KBIndex() string          { return l.path(KBIndexFile) }
 func (l Layout) KBMeta() string           { return l.path(KBMetaFile) }
 func (l Layout) Presence() string         { return l.path(PresenceFile) }
 func (l Layout) Roster() string           { return l.path(RosterFile) }
+func (l Layout) Sessions() string         { return l.path(SessionsFile) }
 func (l Layout) Slack() string            { return l.path(SlackDir) }
 func (l Layout) SlackConfig() string      { return l.path(SlackConfigFile) }
 func (l Layout) SlackThreadmap() string   { return l.path(SlackThreadmapFile) }

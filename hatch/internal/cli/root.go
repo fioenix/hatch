@@ -39,6 +39,7 @@ func NewRoot() *cobra.Command {
 		newRosterCmd(),
 		newDaemonCmd(),
 		newSlackCmd(),
+		newSessionsCmd(),
 		newKBCmd(),
 		newBoardCmd(),
 		newChatCmd(),

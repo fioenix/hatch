@@ -12,3 +12,4 @@ promo/
 /.hatch/mcp/
 /.hatch/logs/
 /.hatch/slack/
+/.hatch/sessions.json

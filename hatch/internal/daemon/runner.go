@@ -1,6 +1,9 @@
 package daemon
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -8,77 +11,187 @@ import (
 	"strings"
 
 	"github.com/fioenix/overclaud/hatch/internal/model"
+	"github.com/fioenix/overclaud/hatch/internal/session"
 )
 
 // ExecRunner is the production Runner: it resumes a teammate's CLI session
 // headlessly and injects the triggering messages as the prompt. Continuity is
-// the member's own session (its memory); the payload is just "here's what was
-// said to you while you were away — read the room and act."
+// the member's own per-thread session (its warm memory); the payload is just
+// "here's what was said to you while you were away — read the room and act."
 type ExecRunner struct {
 	RepoRoot string
-	Stdout   io.Writer // live output sink (defaults to os.Stdout)
+	Stdout   io.Writer      // live output sink (defaults to os.Stdout)
+	Sessions *session.Store // per-(agent,thread) session store; nil = no warm sessions
 }
 
-// Wake builds and runs the per-kind invocation. A kind with no verified
-// headless contract is a no-op here: that teammate is an interactive seat and
-// will see the @mention via its own inbox when it next takes a turn.
+// wakePlan is how to invoke a teammate for one wake: the argv, whether it is
+// headless at all, whether to capture a session id from stdout (codex), and the
+// id we assigned up front (claude). Exactly one of capture/assignID is set for
+// a fresh warm session; a resume sets neither.
+type wakePlan struct {
+	argv     []string
+	headless bool
+	capture  bool
+	assignID string
+}
+
+// Wake plans the invocation for the payload's thread, runs it, and commits the
+// resulting session id so the next wake on that thread resumes warm.
 func (r ExecRunner) Wake(m model.Member, payload []model.Message) error {
-	argv, headless := invocation(m, renderPayload(payload))
-	if !headless {
+	thread := threadOf(payload)
+	var prior model.Session
+	if r.Sessions != nil {
+		prior, _ = r.Sessions.Get(m.ID, thread)
+	}
+	plan := planWake(m, thread, prior, renderPayload(payload))
+	if !plan.headless {
 		return nil
 	}
 	out := r.Stdout
 	if out == nil {
 		out = os.Stdout
 	}
-	fmt.Fprintf(out, "\n— waking %s (%s) with %d message(s) —\n", m.ID, m.Kind, len(payload))
-	cmd := exec.Command(argv[0], argv[1:]...)
+	fmt.Fprintf(out, "\n— waking %s (%s) on thread %s with %d message(s) —\n", m.ID, m.Kind, thread, len(payload))
+
+	stdout := out
+	var cap *sessionCapture
+	if plan.capture {
+		cap = &sessionCapture{out: out}
+		stdout = cap
+	}
+	cmd := exec.Command(plan.argv[0], plan.argv[1:]...)
 	if r.RepoRoot != "" {
 		cmd.Dir = r.RepoRoot
 	}
-	cmd.Stdout = out
+	cmd.Stdout = stdout
 	cmd.Stderr = out
-	return cmd.Run()
+	runErr := cmd.Run()
+
+	if r.Sessions != nil {
+		r.commit(m, thread, prior, plan, cap, runErr)
+	}
+	return runErr
 }
 
-// invocation maps a member to its resume-exec argv. Returns headless=false when
-// the kind has no headless+resume contract (manual/user): those are interactive
-// seats, woken by the human, not by the daemon.
-func invocation(m model.Member, prompt string) (argv []string, headless bool) {
+// commit records the session outcome: a fresh assign/capture stores a live
+// session, a successful resume bumps its timestamp, and a failed resume marks
+// it stale so the next wake starts fresh. Stateless kinds store nothing.
+func (r ExecRunner) commit(m model.Member, thread string, prior model.Session, plan wakePlan, cap *sessionCapture, runErr error) {
+	switch {
+	case plan.assignID != "" && runErr == nil:
+		_ = r.Sessions.Put(model.Session{
+			Agent: m.ID, Thread: thread, Kind: m.Kind, ID: plan.assignID,
+			Status: model.SessionLive, StartedAt: session.Now(), LastResumedAt: session.Now(),
+		})
+	case plan.capture && runErr == nil && cap != nil && cap.id != "":
+		_ = r.Sessions.Put(model.Session{
+			Agent: m.ID, Thread: thread, Kind: m.Kind, ID: cap.id,
+			Status: model.SessionLive, StartedAt: session.Now(), LastResumedAt: session.Now(),
+		})
+	case prior.ID != "" && prior.Status == model.SessionLive:
+		if runErr != nil {
+			_ = r.Sessions.MarkStale(m.ID, thread)
+		} else {
+			prior.LastResumedAt = session.Now()
+			_ = r.Sessions.Put(prior)
+		}
+	}
+}
+
+// planWake maps a member + its prior session to the exec plan. A live prior
+// session resumes warm; otherwise a fresh session is started, assigning an id
+// (claude) or capturing one (codex). agy/kiro run stateless (no id contract);
+// manual/user are interactive seats and not driven here.
+func planWake(m model.Member, thread string, prior model.Session, prompt string) wakePlan {
+	warm := prior.ID != "" && prior.Status == model.SessionLive
 	switch m.Kind {
 	case "claude":
-		// claude -p runs one headless turn; --resume continues the same session
-		// so the teammate keeps its memory.
-		if m.SessionID != "" {
-			return []string{"claude", "-p", "--resume", m.SessionID, prompt}, true
+		// claude assigns its own session id; --resume continues it warm.
+		if warm {
+			return wakePlan{argv: []string{"claude", "-p", "--resume", prior.ID, prompt}, headless: true}
 		}
-		return []string{"claude", "-p", prompt}, true
+		id := uuid4()
+		return wakePlan{argv: []string{"claude", "-p", "--session-id", id, prompt}, headless: true, assignID: id}
 	case "codex":
-		// codex exec runs one non-interactive turn; `exec resume <id>` continues
-		// the same session so the teammate keeps its memory.
-		if m.SessionID != "" {
-			return []string{"codex", "exec", "resume", m.SessionID, prompt}, true
+		// codex emits its session id in --json (session_meta.id); capture it on
+		// the first turn, then `exec resume <id>` continues warm.
+		if warm {
+			return wakePlan{argv: []string{"codex", "exec", "resume", prior.ID, prompt}, headless: true}
 		}
-		return []string{"codex", "exec", prompt}, true
+		return wakePlan{argv: []string{"codex", "exec", "--json", prompt}, headless: true, capture: true}
 	case "agy":
-		// agy --print runs one headless turn; --conversation <id> resumes that
-		// session (Antigravity/Gemini-CLI lineage; prompt is positional).
-		if m.SessionID != "" {
-			return []string{"agy", "-p", "--conversation", m.SessionID, prompt}, true
-		}
-		return []string{"agy", "-p", prompt}, true
+		// agy exposes no session id → stateless: read the thread + KB each wake.
+		return wakePlan{argv: []string{"agy", "-p", prompt}, headless: true}
 	case "kiro":
-		// kiro-cli chat --no-interactive prints one turn and exits; --resume-id
-		// <id> continues that session. Binary is `kiro-cli` (the IDE is `kiro`);
-		// headless auth uses KIRO_API_KEY from the environment.
-		if m.SessionID != "" {
-			return []string{"kiro-cli", "chat", "--no-interactive", "--resume-id", m.SessionID, prompt}, true
-		}
-		return []string{"kiro-cli", "chat", "--no-interactive", prompt}, true
+		// kiro-cli chat --no-interactive prints one turn; stateless for now.
+		return wakePlan{argv: []string{"kiro-cli", "chat", "--no-interactive", prompt}, headless: true}
 	case "mock":
-		return []string{"true"}, true
+		return wakePlan{argv: []string{"true"}, headless: true}
 	default:
-		return nil, false // manual, user: interactive / not driven here
+		return wakePlan{headless: false} // manual, user: interactive / not driven here
+	}
+}
+
+// threadOf returns the bus channel the wake is about: the most recent message's
+// channel. Empty when there is no payload.
+func threadOf(payload []model.Message) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	return payload[len(payload)-1].Channel
+}
+
+// uuid4 returns a random RFC-4122 v4 UUID (claude requires a valid UUID for
+// --session-id). Uses crypto/rand; no external dependency.
+func uuid4() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+// sessionCapture forwards a child's stdout to out while scanning JSONL for the
+// codex "session_meta" event to capture its session id. Best-effort: if the
+// format drifts and nothing is captured, the wake just isn't stored (the next
+// wake starts fresh) — never an error.
+type sessionCapture struct {
+	out io.Writer
+	buf []byte
+	id  string
+}
+
+func (c *sessionCapture) Write(p []byte) (int, error) {
+	if c.id == "" {
+		c.buf = append(c.buf, p...)
+		for {
+			i := bytes.IndexByte(c.buf, '\n')
+			if i < 0 {
+				break
+			}
+			c.scan(c.buf[:i])
+			c.buf = c.buf[i+1:]
+			if c.id != "" {
+				c.buf = nil
+				break
+			}
+		}
+		if len(c.buf) > 1<<20 { // bound growth if a line never terminates
+			c.buf = nil
+		}
+	}
+	return c.out.Write(p)
+}
+
+func (c *sessionCapture) scan(line []byte) {
+	var e struct {
+		Type    string `json:"type"`
+		Payload struct {
+			ID string `json:"id"`
+		} `json:"payload"`
+	}
+	if json.Unmarshal(line, &e) == nil && e.Type == "session_meta" && e.Payload.ID != "" {
+		c.id = e.Payload.ID
 	}
 }
 
