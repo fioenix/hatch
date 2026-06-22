@@ -42,8 +42,8 @@ func (r ExecRunner) Wake(m model.Member, payload []model.Message) error {
 }
 
 // invocation maps a member to its resume-exec argv. Returns headless=false when
-// the kind has no confirmed headless+resume contract (agy/kiro/manual): those
-// are interactive seats, woken by the human, not by the daemon.
+// the kind has no headless+resume contract (manual/user): those are interactive
+// seats, woken by the human, not by the daemon.
 func invocation(m model.Member, prompt string) (argv []string, headless bool) {
 	switch m.Kind {
 	case "claude":
@@ -60,10 +60,25 @@ func invocation(m model.Member, prompt string) (argv []string, headless bool) {
 			return []string{"codex", "exec", "resume", m.SessionID, prompt}, true
 		}
 		return []string{"codex", "exec", prompt}, true
+	case "agy":
+		// agy --print runs one headless turn; --conversation <id> resumes that
+		// session (Antigravity/Gemini-CLI lineage; prompt is positional).
+		if m.SessionID != "" {
+			return []string{"agy", "-p", "--conversation", m.SessionID, prompt}, true
+		}
+		return []string{"agy", "-p", prompt}, true
+	case "kiro":
+		// kiro-cli chat --no-interactive prints one turn and exits; --resume-id
+		// <id> continues that session. Binary is `kiro-cli` (the IDE is `kiro`);
+		// headless auth uses KIRO_API_KEY from the environment.
+		if m.SessionID != "" {
+			return []string{"kiro-cli", "chat", "--no-interactive", "--resume-id", m.SessionID, prompt}, true
+		}
+		return []string{"kiro-cli", "chat", "--no-interactive", prompt}, true
 	case "mock":
 		return []string{"true"}, true
 	default:
-		return nil, false // agy, kiro, manual, user: interactive / not driven here
+		return nil, false // manual, user: interactive / not driven here
 	}
 }
 

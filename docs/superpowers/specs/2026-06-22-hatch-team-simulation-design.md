@@ -249,7 +249,7 @@ USER →(GĐ1) team-leader: "review auth.go giúp"
 
 - **Spawn lại trong default build** mâu thuẫn "embedded, không điều khiển" cũ → giải bằng tách work-orchestration vs delivery (§2.1) và sửa charter (§8). Đây là quyết định kiến trúc có chủ đích, không phải revert.
 - **Resume-exec mỗi wake = cold-start cost** (khởi động CLI mỗi lượt). Chấp nhận ở MVP; live-mode `--channels` (Phase E) là tối ưu sau.
-- **agy/kiro headless contract chưa chắc** → adapter trả `manual` handoff khi không có lệnh headless; chỉ claude/codex chạy auto ở MVP.
+- **agy/kiro headless contract** → đã chốt (sau MVP): agy `-p --conversation <id>`, kiro `kiro-cli chat --no-interactive --resume-id <id>` (auth `KIRO_API_KEY`). Cả 4 kind auto-resume; chỉ `manual`/`user` là ghế tương tác. Cả hai verify trực tiếp trên CLI đã cài (agy probe tay; kiro `--help`: `chat [OPTIONS] [INPUT]`).
 - **Episode boundary** (để tính depth/loop) định nghĩa = cây reply bắt nguồn từ một tin của người, hoặc thread root. Cần chốt khi code Phase B.
 - **Wake một session đã tắt** chỉ làm được qua resume-exec (spawn mới giữ trí nhớ), không qua `--channels`. Mặc định resume-exec nên không vướng.
 

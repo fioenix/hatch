@@ -130,9 +130,13 @@ internal/paths/paths.go    SlackDir="slack", SlackConfig, SlackThreadmap
 
 ## 9. Giới hạn v1 (ngoài scope)
 
-- `@agy`/`@kiro` từ Slack: ghi vào bus nhưng daemon **không** auto-resume (chưa
-  có headless contract — spec gốc đã ghi). Agent thấy qua MCP inbox khi tới lượt,
-  hoặc boss chuyển sang terminal đó.
+- `@codex`/`@claude`/`@agy`/`@kiro` từ Slack đều **auto-resume** (cả 4 kind đã có
+  headless contract trong `daemon/runner.go`): claude `-p --resume`, codex
+  `exec resume`, agy `-p --conversation`, kiro `kiro-cli chat --no-interactive
+  --resume-id`. Chỉ `manual`/`user` là ghế tương tác, không bị daemon đánh thức.
+  (kiro cần `KIRO_API_KEY` trong env. Contract cả agy lẫn kiro verify trực tiếp
+  trên CLI đã cài: kiro `chat [OPTIONS] [INPUT]` + `--no-interactive` +
+  `--resume-id <SESSION_ID>`.)
 - OUT poll 2s (không fsnotify) — chấp nhận, đơn giản.
 - Slack 1 cấp thread — `InReplyTo` bus không phản ánh vào Slack layout.
 - Chạy `hatch slack` + `hatch daemon` là **hai lệnh**. `hatch up` gộp = sau.
