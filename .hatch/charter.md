@@ -11,14 +11,27 @@ agent qua một **MCP server**. CLI Go single-binary; dùng được với Claud
 Codex, Antigravity (`agy`), Kiro.
 
 ## Nguyên tắc tối cao
-- **Embedded, không điều khiển**: Hatch KHÔNG spawn/lái agent. `board`/`chat`/
-  `status` chỉ là view read-only. Quy trình là **protocol compile thành prose**
-  (CLAUDE.md/AGENTS.md/…), không phải engine cưỡng chế.
+- **Mô phỏng team người**: workspace là một "căn phòng" — agent **join**, thấy
+  nhau qua **roster** (`roster`/`join`), hiểu cùng context, và **chat trực tiếp
+  peer-to-peer** để phối hợp. Chat là kênh chính; **task = plan/docs/note**
+  (artifact lập kế hoạch), KHÔNG phải kênh điều phối.
+- **Tách delivery vs orchestration**: Hatch KHÔNG điều phối *công việc* (không
+  assign/lane/lock — không sếp-phần-mềm). Nhưng CÓ **delivery + wake**: `hatch
+  daemon` giao @mention tới đúng teammate và đánh thức (resume) đúng phiên có
+  trí nhớ của họ. Wake **luôn là hệ quả một message ai đó gửi**, không tự sinh.
+- **Sếp là người = user**: user đặt mục tiêu/ưu tiên/duyệt. GĐ1 nói qua một
+  team-leader (role `conductor`, delegate của boss); GĐ2 vào thẳng qua chat UI.
+- **Embedded, không điều khiển công việc**: Hatch không quyết ai-làm-gì.
+  `board`/`chat`/`status`/`roster` là view read-only. Quy trình là **protocol
+  compile thành prose** (CLAUDE.md/AGENTS.md/…), không phải engine cưỡng chế.
 - **SSOT → compile**: sửa `.hatch/{charter,roles,registry,workflow}` rồi
   `hatch compile`; không sửa file output.
 - **Minimum code, surgical**: giải đúng vấn đề, không abstraction thừa. Lean
   Hexagonal (model / port / adapter).
 - Mỗi thay đổi có dấu vết (ledger) + lý do (`why`); không sửa ngoài scope ticket.
+
+> **Working Agreement** (cách làm việc chuyên nghiệp, ownership cao) sống ở
+> `.hatch/working-agreement.md` — nạp cùng charter ở tầng L0.
 
 ## Ràng buộc
 - Go 1.24+. Build sạch **cả hai**: mặc định và `-tags hatch_legacy`.

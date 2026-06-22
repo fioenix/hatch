@@ -47,6 +47,14 @@ func Render(b Bundle) string {
 		w.WriteString("_No charter.md yet._\n\n")
 	}
 
+	// L0 — the working agreement: how the squad works professionally. Loaded
+	// every message alongside the charter; it is what keeps chat from drifting
+	// into noise or diffusion of ownership.
+	if b.WorkingAgreement != "" {
+		w.WriteString("## Working Agreement (L0)\n\n")
+		w.WriteString(b.WorkingAgreement + "\n\n")
+	}
+
 	// L1 — the roles this agent may hold.
 	w.WriteString("## Your roles (L1)\n\n")
 	w.WriteString("Bạn có thể giữ các vai dưới đây. **Vai hiện hành tùy task (thread) bạn nhận trong chat** — đọc thread để biết mình đang đóng vai gì.\n\n")
@@ -87,7 +95,7 @@ func Render(b Bundle) string {
 		w.WriteString("\n")
 	}
 	w.WriteString("- Knowledge Base: tool `kb_search` (hoặc `.hatch/kb/index.md`) — quyết định & bài học chung.\n")
-	w.WriteString("- SSOT: `.hatch/{charter.md,roles/,registry.yaml,workflow.yaml}` — sửa rồi chạy `hatch compile`.\n\n")
+	w.WriteString("- SSOT: `.hatch/{charter.md,working-agreement.md,roles/,registry.yaml,workflow.yaml}` — sửa rồi chạy `hatch compile`.\n\n")
 
 	out := w.String()
 	if !strings.HasSuffix(out, "\n") {
@@ -97,7 +105,7 @@ func Render(b Bundle) string {
 }
 
 // chatTools is the tool surface the Hatch MCP server exposes (see mcpserver).
-const chatTools = "`whoami`, `chat_open`, `chat_post`, `chat_read`, `chat_inbox`, `chat_search`, `chat_channels`, `kb_add`, `kb_search`"
+const chatTools = "`whoami`, `join`, `roster`, `leave`, `chat_open`, `chat_post`, `chat_read`, `chat_inbox`, `chat_search`, `chat_channels`, `kb_add`, `kb_search`"
 
 // renderOrchestrator writes the lead agent's coordination duties. Hatch does
 // not drive anyone; this agent self-conducts through chat.

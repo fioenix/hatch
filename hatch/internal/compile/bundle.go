@@ -21,12 +21,13 @@ type RoleContent struct {
 // served on that surface, the L2 pointers (not the content), plus the protocol
 // the agent self-follows (workflow prose + chat etiquette + DoD).
 type Bundle struct {
-	Surface     Surface
-	Agents      []model.Agent // agents reading this surface
-	Charter     string        // L0
-	Roles       []RoleContent // L1
-	ContextRefs []string      // L2 pointers (union of role refs)
-	Project     string
+	Surface          Surface
+	Agents           []model.Agent // agents reading this surface
+	Charter          string        // L0
+	WorkingAgreement string        // L0 — how the squad works professionally
+	Roles            []RoleContent // L1
+	ContextRefs      []string      // L2 pointers (union of role refs)
+	Project          string
 
 	Workflow *model.Workflow // process, rendered as prose (not an engine)
 	Policy   model.Policy    // governance toggles surfaced into the DoD
@@ -90,6 +91,10 @@ func buildBundle(ws *config.Workspace, surf Surface, agents []model.Agent, roleI
 	if raw, err := os.ReadFile(ws.Layout.Charter()); err == nil {
 		charter = stripFrontmatter(string(raw))
 	}
+	workingAgreement := ""
+	if raw, err := os.ReadFile(ws.Layout.WorkingAgreement()); err == nil {
+		workingAgreement = stripFrontmatter(string(raw))
+	}
 	sort.Strings(roleIDs)
 	var roles []RoleContent
 	refSet := map[string]bool{}
@@ -119,14 +124,15 @@ func buildBundle(ws *config.Workspace, surf Surface, agents []model.Agent, roleI
 	}
 
 	return Bundle{
-		Surface:     surf,
-		Agents:      agents,
-		Charter:     charter,
-		Roles:       roles,
-		ContextRefs: refs,
-		Project:     ws.Registry.Project,
-		Workflow:    ws.Workflow,
-		Policy:      ws.Registry.Policy,
-		Lead:        lead,
+		Surface:          surf,
+		Agents:           agents,
+		Charter:          charter,
+		WorkingAgreement: workingAgreement,
+		Roles:            roles,
+		ContextRefs:      refs,
+		Project:          ws.Registry.Project,
+		Workflow:         ws.Workflow,
+		Policy:           ws.Registry.Policy,
+		Lead:             lead,
 	}
 }

@@ -45,7 +45,7 @@ func hashTree(root, base string, into map[string]string) {
 // registry, workflow), keyed relative to the .hatch root.
 func sourceHashes(l paths.Layout) map[string]string {
 	srcs := map[string]string{}
-	for _, f := range []string{l.Charter(), l.Registry(), l.Workflow()} {
+	for _, f := range []string{l.Charter(), l.WorkingAgreement(), l.Registry(), l.Workflow()} {
 		if raw, err := os.ReadFile(f); err == nil {
 			rel, _ := filepath.Rel(l.Root, f)
 			srcs[filepath.ToSlash(rel)] = hashBytes(raw)

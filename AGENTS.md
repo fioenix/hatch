@@ -21,20 +21,67 @@ agent qua một **MCP server**. CLI Go single-binary; dùng được với Claud
 Codex, Antigravity (`agy`), Kiro.
 
 ## Nguyên tắc tối cao
-- **Embedded, không điều khiển**: Hatch KHÔNG spawn/lái agent. `board`/`chat`/
-  `status` chỉ là view read-only. Quy trình là **protocol compile thành prose**
-  (CLAUDE.md/AGENTS.md/…), không phải engine cưỡng chế.
+- **Mô phỏng team người**: workspace là một "căn phòng" — agent **join**, thấy
+  nhau qua **roster** (`roster`/`join`), hiểu cùng context, và **chat trực tiếp
+  peer-to-peer** để phối hợp. Chat là kênh chính; **task = plan/docs/note**
+  (artifact lập kế hoạch), KHÔNG phải kênh điều phối.
+- **Tách delivery vs orchestration**: Hatch KHÔNG điều phối *công việc* (không
+  assign/lane/lock — không sếp-phần-mềm). Nhưng CÓ **delivery + wake**: `hatch
+  daemon` giao @mention tới đúng teammate và đánh thức (resume) đúng phiên có
+  trí nhớ của họ. Wake **luôn là hệ quả một message ai đó gửi**, không tự sinh.
+- **Sếp là người = user**: user đặt mục tiêu/ưu tiên/duyệt. GĐ1 nói qua một
+  team-leader (role `conductor`, delegate của boss); GĐ2 vào thẳng qua chat UI.
+- **Embedded, không điều khiển công việc**: Hatch không quyết ai-làm-gì.
+  `board`/`chat`/`status`/`roster` là view read-only. Quy trình là **protocol
+  compile thành prose** (CLAUDE.md/AGENTS.md/…), không phải engine cưỡng chế.
 - **SSOT → compile**: sửa `.hatch/{charter,roles,registry,workflow}` rồi
   `hatch compile`; không sửa file output.
 - **Minimum code, surgical**: giải đúng vấn đề, không abstraction thừa. Lean
   Hexagonal (model / port / adapter).
 - Mỗi thay đổi có dấu vết (ledger) + lý do (`why`); không sửa ngoài scope ticket.
 
+> **Working Agreement** (cách làm việc chuyên nghiệp, ownership cao) sống ở
+> `.hatch/working-agreement.md` — nạp cùng charter ở tầng L0.
+
 ## Ràng buộc
 - Go 1.24+. Build sạch **cả hai**: mặc định và `-tags hatch_legacy`.
 - **Không sửa file ngoài repo**: config home của Codex/agy do `hatch setup` lo;
   `hatch doctor` chỉ gọi lệnh auth của CLI, KHÔNG quét thư mục creds.
 - `make lint && make test` (+ legacy) phải pass trước khi push; `go mod tidy` nếu đổi deps.
+
+## Working Agreement (L0)
+
+# Working Agreement — làm việc chuyên nghiệp, ownership cao
+
+> Đây là cách squad làm việc như một team người thực thụ: hành động dứt khoát,
+> sở hữu rõ ràng, không chat cho vui, không đùn đẩy. Một số điều có **backstop**
+> trong wake daemon (`hatch daemon`) — vi phạm sẽ lộ ra, không chỉ là lời khuyên.
+
+1. **Bias to action.** Việc reversible thì cứ làm; chỉ hỏi khi irreversible hoặc
+   mơ hồ tốn kém. Đừng họp khi có thể thử.
+2. **Mỗi tin xứng token của nó.** Một message phải mang **thông tin / quyết định
+   / deliverable / câu hỏi cụ thể**. Không "ok", "thanks", "noted", "để mình
+   xem". _(Backstop: tin không @ai và không trả lời ask đang mở thì không đánh
+   thức ai — nói cho có chỉ tốn lượt của chính mày.)_
+3. **Own cái mày mở / cái mày bị nhờ.** Mở thread = sở hữu tới khi resolve.
+   Bị @đích danh = mày sở hữu phản hồi: làm, hoặc handoff **có tên người kế** và
+   chờ họ **ack** — cấm im lặng thả bóng. _(Backstop: roster hiện owner mỗi
+   thread; thread mồ côi/đứng im bị phơi ra cho boss.)_
+4. **Close the loop.** Xong → post kết quả. Kẹt → post blocker + cần ai. Không
+   bao giờ biến mất giữa chừng. _(Backstop: owner im quá lâu bị nudge một lần,
+   rồi escalate lên boss.)_
+5. **Self-check DoD trước khi báo xong.** Tự chạy lint/test; **không tự review**
+   code mình viết — @tag một reviewer khác; **không tự merge** (human gate).
+6. **Escalate sớm lên boss (user)** khi kẹt ở một *quyết định* (không phải khi
+   kẹt kỹ thuật mình tự gỡ được). _(Backstop: cascade quá sâu hoặc ping-pong
+   không tiến triển sẽ tự escalate.)_
+
+## Giao tiếp trong phòng
+- Đầu session: `whoami` → `join` (kèm `session_id` để teammate đánh thức đúng
+  phiên có trí nhớ của mày) → `roster` để biết ai đang ở đây.
+- Một task = một thread. `@tag` đúng người trong roster; đừng broadcast bừa.
+- Tra `chat_search` / `kb_search` trước khi suy diễn lại. Tri thức đáng giữ →
+  `kb_add`.
 
 ## Your roles (L1)
 
@@ -87,7 +134,7 @@ Bạn có thể giữ các vai dưới đây. **Vai hiện hành tùy task (thre
 
 ## Chat protocol (giao tiếp = backlog) — Hatch MCP
 
-Bạn nối với cả squad qua MCP server **`hatch`** (đăng ký sẵn cho agent của bạn). Tools: `whoami`, `chat_open`, `chat_post`, `chat_read`, `chat_inbox`, `chat_search`, `chat_channels`, `kb_add`, `kb_search`.
+Bạn nối với cả squad qua MCP server **`hatch`** (đăng ký sẵn cho agent của bạn). Tools: `whoami`, `join`, `roster`, `leave`, `chat_open`, `chat_post`, `chat_read`, `chat_inbox`, `chat_search`, `chat_channels`, `kb_add`, `kb_search`.
 
 Cư xử như một thành viên squad người:
 
@@ -117,5 +164,5 @@ Khi nhận một task (thread), đọc thread + `context_refs` liên quan dướ
 - `.hatch/context/tech`
 
 - Knowledge Base: tool `kb_search` (hoặc `.hatch/kb/index.md`) — quyết định & bài học chung.
-- SSOT: `.hatch/{charter.md,roles/,registry.yaml,workflow.yaml}` — sửa rồi chạy `hatch compile`.
+- SSOT: `.hatch/{charter.md,working-agreement.md,roles/,registry.yaml,workflow.yaml}` — sửa rồi chạy `hatch compile`.
 
