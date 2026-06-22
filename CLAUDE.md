@@ -44,10 +44,10 @@ Codex, Antigravity (`agy`), Kiro.
 > `.hatch/working-agreement.md` — nạp cùng charter ở tầng L0.
 
 ## Ràng buộc
-- Go 1.24+. Build sạch **cả hai**: mặc định và `-tags hatch_legacy`.
+- Go 1.24+. Một binary chat-based duy nhất (engine điều phối legacy đã gỡ bỏ).
 - **Không sửa file ngoài repo**: config home của Codex/agy do `hatch setup` lo;
   `hatch doctor` chỉ gọi lệnh auth của CLI, KHÔNG quét thư mục creds.
-- `make lint && make test` (+ legacy) phải pass trước khi push; `go mod tidy` nếu đổi deps.
+- `make lint && make test` phải pass trước khi push; `go mod tidy` nếu đổi deps.
 
 ## Working Agreement (L0)
 

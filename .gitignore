@@ -13,3 +13,4 @@ promo/
 /.hatch/logs/
 /.hatch/slack/
 /.hatch/sessions.json
+/.hatch/roster.json
