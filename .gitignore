@@ -11,3 +11,4 @@ promo/
 /.hatch/compiled/
 /.hatch/mcp/
 /.hatch/logs/
+/.hatch/slack/

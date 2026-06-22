@@ -29,6 +29,10 @@ const (
 	ProtocolDir = "protocol"
 	CompiledDir = "compiled"
 	LogsDir     = "logs"
+	SlackDir    = "slack"
+
+	SlackConfigFile    = "slack/config.json"
+	SlackThreadmapFile = "slack/threadmap.json"
 
 	ManifestFile = "compiled/.manifest.json"
 	MCPLogFile   = "logs/mcp.jsonl"
@@ -62,6 +66,9 @@ func (l Layout) KBIndex() string          { return l.path(KBIndexFile) }
 func (l Layout) KBMeta() string           { return l.path(KBMetaFile) }
 func (l Layout) Presence() string         { return l.path(PresenceFile) }
 func (l Layout) Roster() string           { return l.path(RosterFile) }
+func (l Layout) Slack() string            { return l.path(SlackDir) }
+func (l Layout) SlackConfig() string      { return l.path(SlackConfigFile) }
+func (l Layout) SlackThreadmap() string   { return l.path(SlackThreadmapFile) }
 func (l Layout) Oncall() string           { return l.path(OncallFile) }
 func (l Layout) DocTemplates() string     { return l.path("templates", "docs") }
 
