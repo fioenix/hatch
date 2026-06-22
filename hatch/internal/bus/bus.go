@@ -38,7 +38,7 @@ type Bus struct{ L paths.Layout }
 // New returns a bus bound to a workspace layout.
 func New(l paths.Layout) *Bus { return &Bus{L: l} }
 
-func (b *Bus) dir() string         { return filepath.Join(b.L.Root, "bus") }
+func (b *Bus) dir() string         { return b.L.Bus() }
 func (b *Bus) threadsDir() string  { return filepath.Join(b.dir(), "threads") }
 func (b *Bus) cursorsPath() string { return filepath.Join(b.dir(), ".cursors.json") }
 

@@ -20,6 +20,9 @@ func TestBoardFlagsUnsafeTicketID(t *testing.T) {
 	ws, _ := config.Load(l)
 	// A crafted ticket file: safe filename, but a traversal id in frontmatter.
 	raw := "---\nid: \"../evil\"\nstatus: backlog\nrole: implementer\n---\nx\n"
+	if err := os.MkdirAll(l.Lane("backlog"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(l.Lane("backlog"), "weird.md"), []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
 	}

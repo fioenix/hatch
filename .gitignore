@@ -4,13 +4,5 @@ node_modules/
 __pycache__/
 promo/
 
-# Hatch local workspace runtime (the .hatch SSOT + kb/ are committed)
-/.hatch/board/
-/.hatch/bus/
-/.hatch/ledger/
-/.hatch/compiled/
-/.hatch/mcp/
-/.hatch/logs/
-/.hatch/slack/
-/.hatch/sessions.json
-/.hatch/roster.json
+# Hatch: all runtime state lives under .hatch/run/ (the .hatch SSOT + kb/ are committed)
+/.hatch/run/

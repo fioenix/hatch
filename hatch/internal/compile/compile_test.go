@@ -97,7 +97,7 @@ func TestCompileInjectsProtocolAndMCP(t *testing.T) {
 	if !strings.Contains(string(kmcp), `"hatch"`) || !strings.Contains(string(kmcp), "kiro") {
 		t.Errorf("kiro mcp.json missing hatch server / kiro identity: %s", kmcp)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".hatch", "mcp", "codex.codex.toml")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".hatch", "run", "mcp", "codex.codex.toml")); err != nil {
 		t.Errorf("missing codex MCP snippet: %v", err)
 	}
 }

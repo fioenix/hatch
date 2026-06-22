@@ -148,16 +148,12 @@ func newInitCmd() *cobra.Command {
 	return cmd
 }
 
-// hatchRuntimeIgnores are the per-checkout .hatch subdirs that don't belong in
-// git: the chat/ledger state and regenerable outputs. The SSOT (charter,
+// hatchRuntimeIgnores is the single .hatch subdir that doesn't belong in git:
+// all runtime state (chat bus, roster, sessions, slack, ledger, compiled
+// manifest, logs, mcp snippets) lives under .hatch/run/. The SSOT (charter,
 // registry, roles, context, workflow, protocol) and kb/ are committed.
 var hatchRuntimeIgnores = []string{
-	"/.hatch/board/",
-	"/.hatch/bus/",
-	"/.hatch/ledger/",
-	"/.hatch/compiled/",
-	"/.hatch/mcp/",
-	"/.hatch/logs/",
+	"/.hatch/run/",
 }
 
 const hatchIgnoreHeader = "# Hatch local workspace runtime (the .hatch SSOT + kb/ are committed)"

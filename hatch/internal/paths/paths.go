@@ -11,34 +11,40 @@ import (
 // Dir is the workspace directory name placed at a repository root.
 const Dir = ".hatch"
 
-// Layout names within a .hatch/ directory.
+// Layout names within a .hatch/ directory. SSOT (committed) lives at the top
+// level; everything regenerable or machine-local lives under RunDir so a single
+// gitignore line (/.hatch/run/) covers all runtime state.
 const (
+	// SSOT — hand-edited, committed.
 	CharterFile          = "charter.md"
 	WorkingAgreementFile = "working-agreement.md"
 	RegistryFile         = "registry.yaml"
 	WorkflowFile         = "workflow.yaml"
-	PresenceFile         = "presence.json"
-	RosterFile           = "roster.json"
-	SessionsFile         = "sessions.json"
-	OncallFile           = "oncall.json"
 
 	RolesDir    = "roles"
 	ContextDir  = "context"
 	KBDir       = "kb"
-	BoardDir    = "board"
-	LedgerDir   = "ledger"
 	ProtocolDir = "protocol"
-	CompiledDir = "compiled"
-	LogsDir     = "logs"
-	SlackDir    = "slack"
 
-	SlackConfigFile    = "slack/config.json"
-	SlackThreadmapFile = "slack/threadmap.json"
+	KBIndexFile = "kb/index.md"
+	KBMetaFile  = "kb/.meta.json"
 
-	ManifestFile = "compiled/.manifest.json"
-	MCPLogFile   = "logs/mcp.jsonl"
-	KBIndexFile  = "kb/index.md"
-	KBMetaFile   = "kb/.meta.json"
+	// RunDir holds all runtime state (chat bus, presence, sessions, slack,
+	// compiled manifest, logs, ledger, mcp snippets). Gitignored as one dir.
+	RunDir = "run"
+
+	BusDir         = "bus"
+	BoardDir       = "board"
+	RosterFile     = "roster.json"
+	SessionsFile   = "sessions.json"
+	LedgerDir      = "ledger"
+	CompiledDir    = "compiled"
+	LogsDir        = "logs"
+	SlackDir       = "slack"
+	MCPDir         = "mcp"
+	ManifestFile   = "compiled/.manifest.json"
+	MCPLogFile     = "logs/mcp.jsonl"
+	SlackConfigDir = "slack"
 )
 
 // Layout resolves absolute paths inside a single workspace root.
@@ -48,6 +54,12 @@ func (l Layout) path(parts ...string) string {
 	return filepath.Join(append([]string{l.Root}, parts...)...)
 }
 
+// run resolves a path under the runtime dir (.hatch/run/...).
+func (l Layout) run(parts ...string) string {
+	return l.path(append([]string{RunDir}, parts...)...)
+}
+
+// SSOT (committed).
 func (l Layout) Charter() string          { return l.path(CharterFile) }
 func (l Layout) WorkingAgreement() string { return l.path(WorkingAgreementFile) }
 func (l Layout) Registry() string         { return l.path(RegistryFile) }
@@ -55,24 +67,27 @@ func (l Layout) Workflow() string         { return l.path(WorkflowFile) }
 func (l Layout) Roles() string            { return l.path(RolesDir) }
 func (l Layout) Context() string          { return l.path(ContextDir) }
 func (l Layout) KB() string               { return l.path(KBDir) }
-func (l Layout) Board() string            { return l.path(BoardDir) }
-func (l Layout) Lane(name string) string  { return l.path(BoardDir, name) }
-func (l Layout) Ledger() string           { return l.path(LedgerDir) }
 func (l Layout) Protocol() string         { return l.path(ProtocolDir) }
-func (l Layout) Compiled() string         { return l.path(CompiledDir) }
-func (l Layout) Logs() string             { return l.path(LogsDir) }
-func (l Layout) MCPLog() string           { return l.path(MCPLogFile) }
-func (l Layout) Manifest() string         { return l.path(ManifestFile) }
 func (l Layout) KBIndex() string          { return l.path(KBIndexFile) }
 func (l Layout) KBMeta() string           { return l.path(KBMetaFile) }
-func (l Layout) Presence() string         { return l.path(PresenceFile) }
-func (l Layout) Roster() string           { return l.path(RosterFile) }
-func (l Layout) Sessions() string         { return l.path(SessionsFile) }
-func (l Layout) Slack() string            { return l.path(SlackDir) }
-func (l Layout) SlackConfig() string      { return l.path(SlackConfigFile) }
-func (l Layout) SlackThreadmap() string   { return l.path(SlackThreadmapFile) }
-func (l Layout) Oncall() string           { return l.path(OncallFile) }
-func (l Layout) DocTemplates() string     { return l.path("templates", "docs") }
+
+// Runtime (under .hatch/run/, gitignored).
+func (l Layout) Run() string             { return l.path(RunDir) }
+func (l Layout) Bus() string             { return l.run(BusDir) }
+func (l Layout) Board() string           { return l.run(BoardDir) }
+func (l Layout) Lane(name string) string { return l.run(BoardDir, name) }
+func (l Layout) Ledger() string          { return l.run(LedgerDir) }
+func (l Layout) Compiled() string        { return l.run(CompiledDir) }
+func (l Layout) Logs() string            { return l.run(LogsDir) }
+func (l Layout) MCPLog() string          { return l.run(MCPLogFile) }
+func (l Layout) Manifest() string        { return l.run(ManifestFile) }
+func (l Layout) MCPSnippets() string     { return l.run(MCPDir) }
+func (l Layout) Roster() string          { return l.run(RosterFile) }
+func (l Layout) Sessions() string        { return l.run(SessionsFile) }
+func (l Layout) Slack() string           { return l.run(SlackDir) }
+func (l Layout) SlackConfig() string     { return l.run(SlackDir, "config.json") }
+func (l Layout) SlackThreadmap() string  { return l.run(SlackDir, "threadmap.json") }
+func (l Layout) DocTemplates() string    { return l.path("templates", "docs") }
 
 // SafeSegment sanitizes s for use as a single path segment, preventing path
 // traversal: only [A-Za-z0-9._-] survive, the rest become '-', and the

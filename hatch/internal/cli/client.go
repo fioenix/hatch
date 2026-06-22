@@ -79,7 +79,7 @@ func setupClient(cmd *cobra.Command, ws *config.Workspace, repoRoot, alias strin
 
 	case "codex":
 		// Codex owns ~/.codex/config.toml; let its own CLI edit it.
-		snippet := filepath.Join(ws.Layout.Root, "mcp", id+".codex.toml")
+		snippet := filepath.Join(ws.Layout.MCPSnippets(), id+".codex.toml")
 		if path, err := exec.LookPath("codex"); err == nil && !dryRun {
 			cargs := append([]string{"mcp", "add", "hatch", "--"}, append([]string{"hatch"}, args...)...)
 			c := exec.Command(path, cargs...)
