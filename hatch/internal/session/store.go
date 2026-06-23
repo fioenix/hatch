@@ -7,9 +7,11 @@ package session
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/fioenix/overclaud/hatch/internal/model"
@@ -18,6 +20,11 @@ import (
 
 // book is the on-disk shape: agent id → bus thread → session.
 type book map[string]map[string]model.Session
+
+// mu serializes read-modify-write of sessions.json within this process (the
+// daemon resumes several agents concurrently). Reads are lock-free (writes end
+// with an atomic rename).
+var mu sync.Mutex
 
 // Store reads and writes .hatch/sessions.json.
 type Store struct{ L paths.Layout }
@@ -51,7 +58,7 @@ func (s *Store) save(b book) error {
 	if err := os.MkdirAll(filepath.Dir(s.L.Sessions()), 0o755); err != nil {
 		return err
 	}
-	tmp := s.L.Sessions() + ".tmp"
+	tmp := fmt.Sprintf("%s.tmp.%d", s.L.Sessions(), os.Getpid())
 	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
 		return err
 	}
@@ -71,6 +78,8 @@ func (s *Store) Get(agent, thread string) (model.Session, bool) {
 // Put upserts a session by (Agent, Thread). When it supersedes a session with a
 // different id, the old id is pushed onto History for audit.
 func (s *Store) Put(sess model.Session) error {
+	mu.Lock()
+	defer mu.Unlock()
 	b, err := s.load()
 	if err != nil {
 		return err
@@ -87,12 +96,19 @@ func (s *Store) Put(sess model.Session) error {
 
 // MarkStale flags a session unresumable so the next wake starts fresh.
 func (s *Store) MarkStale(agent, thread string) error {
-	sess, ok := s.Get(agent, thread)
+	mu.Lock()
+	defer mu.Unlock()
+	b, err := s.load()
+	if err != nil {
+		return err
+	}
+	sess, ok := b[agent][thread]
 	if !ok {
 		return nil
 	}
 	sess.Status = model.SessionStale
-	return s.Put(sess)
+	b[agent][thread] = sess
+	return s.save(b)
 }
 
 // All returns every recorded session, sorted by agent then thread.

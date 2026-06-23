@@ -7,9 +7,11 @@ package roster
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/fioenix/overclaud/hatch/internal/model"
@@ -20,6 +22,11 @@ import (
 // idle. It is cosmetic (idle members are still reachable/wakeable); it just
 // tells the boss who is actively around.
 const IdleAfter = 5 * time.Minute
+
+// mu serializes read-modify-write of the roster file within this process (the
+// daemon wakes several agents concurrently, each updating status). Reads (Load)
+// are safe lock-free because writes finish with an atomic rename.
+var mu sync.Mutex
 
 // Store reads and writes the roster for one workspace.
 type Store struct{ L paths.Layout }
@@ -43,9 +50,17 @@ func (s *Store) Load() (model.Roster, error) {
 	return r, nil
 }
 
-// Save writes the roster atomically-ish (write then rename) to avoid a torn
-// read by a concurrently-tailing daemon.
+// Save writes the roster atomically (write then rename) to avoid a torn read by
+// a concurrently-tailing reader. It serializes with the mutating helpers.
 func (s *Store) Save(r model.Roster) error {
+	mu.Lock()
+	defer mu.Unlock()
+	return s.save(r)
+}
+
+// save is the unlocked write; callers already hold mu. A per-pid temp name keeps
+// concurrent processes from clobbering each other's temp file before rename.
+func (s *Store) save(r model.Roster) error {
 	if err := os.MkdirAll(filepath.Dir(s.L.Roster()), 0o755); err != nil {
 		return err
 	}
@@ -53,7 +68,7 @@ func (s *Store) Save(r model.Roster) error {
 	if err != nil {
 		return err
 	}
-	tmp := s.L.Roster() + ".tmp"
+	tmp := fmt.Sprintf("%s.tmp.%d", s.L.Roster(), os.Getpid())
 	if err := os.WriteFile(tmp, append(raw, '\n'), 0o644); err != nil {
 		return err
 	}
@@ -65,6 +80,8 @@ func (s *Store) Save(r model.Roster) error {
 // memory (used by the wake daemon to resume the same teammate). An empty
 // sessionID preserves any previously recorded one.
 func (s *Store) Join(m model.Member) (model.Member, error) {
+	mu.Lock()
+	defer mu.Unlock()
 	r, err := s.Load()
 	if err != nil {
 		return model.Member{}, err
@@ -78,13 +95,15 @@ func (s *Store) Join(m model.Member) (model.Member, error) {
 	}
 	m.LastSeen = now()
 	r[m.ID] = m
-	return m, s.Save(r)
+	return m, s.save(r)
 }
 
 // Touch refreshes a member's LastSeen and revives it to online if it was idle
 // or suspended. Called on any activity (e.g. an MCP tool call) so presence
 // reflects reality. A missing or offline member is left unchanged.
 func (s *Store) Touch(id string) error {
+	mu.Lock()
+	defer mu.Unlock()
 	r, err := s.Load()
 	if err != nil {
 		return err
@@ -98,11 +117,13 @@ func (s *Store) Touch(id string) error {
 		m.Status = model.MemberOnline
 	}
 	r[id] = m
-	return s.Save(r)
+	return s.save(r)
 }
 
 // Leave marks a member offline (it has explicitly left the room).
 func (s *Store) Leave(id string) error {
+	mu.Lock()
+	defer mu.Unlock()
 	r, err := s.Load()
 	if err != nil {
 		return err
@@ -111,7 +132,7 @@ func (s *Store) Leave(id string) error {
 		m.Status = model.MemberOffline
 		m.LastSeen = now()
 		r[id] = m
-		return s.Save(r)
+		return s.save(r)
 	}
 	return nil
 }
@@ -119,6 +140,8 @@ func (s *Store) Leave(id string) error {
 // SetStatus sets a member's status explicitly (e.g. the daemon marking a member
 // suspended after it finishes a turn). No-op for a missing member.
 func (s *Store) SetStatus(id, status string) error {
+	mu.Lock()
+	defer mu.Unlock()
 	r, err := s.Load()
 	if err != nil {
 		return err
@@ -127,7 +150,7 @@ func (s *Store) SetStatus(id, status string) error {
 		m.Status = status
 		m.LastSeen = now()
 		r[id] = m
-		return s.Save(r)
+		return s.save(r)
 	}
 	return nil
 }

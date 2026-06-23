@@ -66,6 +66,7 @@ func TestDispatchOnMention(t *testing.T) {
 
 	r := &recRunner{}
 	d := New(b, rs, r, wake.Config{})
+	t.Cleanup(d.Wait) // drain dispatch goroutines before TempDir cleanup
 	dispatched, _, err := d.Tick(now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -82,6 +83,7 @@ func TestDebounceHoldsThenFlushes(t *testing.T) {
 	base := time.Now()
 	r := &recRunner{block: true, gate: make(chan struct{})}
 	d := New(b, rs, r, wake.Config{})
+	t.Cleanup(d.Wait) // drain dispatch goroutines before TempDir cleanup
 
 	// Tick 1: first mention dispatches codex; runner blocks (mid-turn).
 	post(t, b, "boss", "#dev", []string{"codex"}, model.MsgText, base.Format(time.RFC3339Nano), "task one")
@@ -130,6 +132,7 @@ func TestEscalationPostedToBoss(t *testing.T) {
 
 	r := &recRunner{}
 	d := New(b, rs, r, wake.Config{Depth: 1})
+	t.Cleanup(d.Wait) // drain dispatch goroutines before TempDir cleanup
 	base := time.Now()
 
 	// agy → codex, then codex → agy within one episode "E": depth exceeds 1.

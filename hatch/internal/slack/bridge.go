@@ -54,7 +54,9 @@ func NewBridge(b *bus.Bus, rs *roster.Store, cfg Config, p poster, tm *threadmap
 	if mentions == nil {
 		mentions = map[string]string{}
 	}
-	return &Bridge{Bus: b, Roster: rs, Cfg: cfg, poster: p, tm: tm, mentions: mentions}
+	br := &Bridge{Bus: b, Roster: rs, Cfg: cfg, poster: p, tm: tm, mentions: mentions}
+	br.cursor = parseTS(tm.getCursor()) // resume the mirror; don't re-post history
+	return br
 }
 
 // mirrorOnce posts every bus message newer than the cursor into Slack, skipping
@@ -67,6 +69,7 @@ func (b *Bridge) mirrorOnce(now time.Time) error {
 	if err != nil {
 		r = model.Roster{} // identity falls back to ids; mirroring still works
 	}
+	start := b.cursor
 	msgs := b.tailBus()
 	for _, m := range msgs {
 		t := parseTS(m.TS)
@@ -82,6 +85,7 @@ func (b *Bridge) mirrorOnce(now time.Time) error {
 		}
 		ts, perr := b.poster.post(m.From, threadTS, name, icon, text)
 		if perr != nil {
+			b.persistCursor(start) // checkpoint what already succeeded
 			return perr
 		}
 		if !known {
@@ -89,7 +93,16 @@ func (b *Bridge) mirrorOnce(now time.Time) error {
 		}
 		b.advance(t)
 	}
+	b.persistCursor(start)
 	return nil
+}
+
+// persistCursor saves the mirror high-water mark if it advanced this pass, so a
+// bridge restart resumes instead of re-posting the whole backlog.
+func (b *Bridge) persistCursor(start time.Time) {
+	if b.cursor.After(start) {
+		_ = b.tm.setCursor(b.cursor.Format(time.RFC3339Nano))
+	}
 }
 
 // handleIncoming turns a genuine human Slack message into a bus post from the
@@ -102,6 +115,12 @@ func (b *Bridge) handleIncoming(in incoming) error {
 	}
 	if in.BotID != "" || in.User == "" || in.SubType != "" {
 		return nil // our own posts, other bots, or system/edit events
+	}
+	// Only the boss may drive the squad from Slack. When a boss Slack user id is
+	// configured, ignore everyone else (a shared channel must not let any member
+	// wake agents with the boss's authority). Empty BossUserID = single-tenant.
+	if b.Cfg.BossUserID != "" && in.User != b.Cfg.BossUserID {
+		return nil
 	}
 	text := strings.TrimSpace(b.translateMentions(in.Text))
 	if text == "" {

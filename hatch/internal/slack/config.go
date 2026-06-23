@@ -19,14 +19,15 @@ import (
 // Tokens are loaded from the environment first, then a gitignored
 // .hatch/slack/config.json. They are never committed.
 type Config struct {
-	AppToken  string            `json:"app_token"`  // xapp- (hub app, Socket Mode / inbound)
-	HubToken  string            `json:"hub_token"`  // xoxb- (hub app: escalations + impersonation fallback)
-	ChannelID string            `json:"channel_id"` // the #squad channel (C...)
-	Boss      string            `json:"boss"`       // member id of the human (Kind=user)
-	Agents    map[string]string `json:"agents"`     // agent id → xoxb- bot token (posts as that agent)
+	AppToken   string            `json:"app_token"`    // xapp- (hub app, Socket Mode / inbound)
+	HubToken   string            `json:"hub_token"`    // xoxb- (hub app: escalations + impersonation fallback)
+	ChannelID  string            `json:"channel_id"`   // the #squad channel (C...)
+	Boss       string            `json:"boss"`         // member id of the human (Kind=user)
+	BossUserID string            `json:"boss_user_id"` // Slack user id (U...) allowed to drive; "" = single-tenant
+	Agents     map[string]string `json:"agents"`       // agent id → xoxb- bot token (posts as that agent)
 }
 
-// LoadConfig resolves config from .hatch/slack/config.json, then lets the
+// LoadConfig resolves config from .hatch/run/slack/config.json, then lets the
 // environment override scalar fields. Per-agent tokens may also be supplied as
 // HATCH_SLACK_TOKEN_<ID> (e.g. HATCH_SLACK_TOKEN_CLAUDE_CODE for "claude-code").
 func LoadConfig(l paths.Layout) (Config, error) {
@@ -49,6 +50,9 @@ func LoadConfig(l paths.Layout) (Config, error) {
 	if v := os.Getenv("HATCH_SLACK_BOSS"); v != "" {
 		c.Boss = v
 	}
+	if v := os.Getenv("HATCH_SLACK_BOSS_USER"); v != "" {
+		c.BossUserID = v
+	}
 	for _, kv := range os.Environ() {
 		k, v, ok := strings.Cut(kv, "=")
 		if !ok || v == "" || !strings.HasPrefix(k, "HATCH_SLACK_TOKEN_") {
@@ -61,6 +65,7 @@ func LoadConfig(l paths.Layout) (Config, error) {
 	c.HubToken = strings.TrimSpace(c.HubToken)
 	c.ChannelID = strings.TrimSpace(c.ChannelID)
 	c.Boss = strings.TrimSpace(c.Boss)
+	c.BossUserID = strings.TrimSpace(c.BossUserID)
 	return c, c.validate()
 }
 

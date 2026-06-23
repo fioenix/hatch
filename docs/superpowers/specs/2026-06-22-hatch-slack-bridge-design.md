@@ -103,13 +103,13 @@ Không cần tag origin riêng; hai luật trên đủ.
 internal/slack/
   config.go     Config{AppToken,HubToken,ChannelID,Boss,Agents{id→token}}; load json→env override; validate
   identity.go   displayName(member) + icon(kind) — dùng cho fallback impersonation
-  threadmap.go  load/save .hatch/slack/threadmap.json (ch→ts) + reverse in-mem
+  threadmap.go  load/save .hatch/run/slack/threadmap.json (ch→ts) + reverse in-mem
   bridge.go     Bridge{Bus,Roster,poster,tm,mentions,cursor}: mirrorOnce() (OUT), handleIncoming()+translateMentions() (IN-pure)
   runtime.go    Run(): hub client + per-agent clients, auth.test→mentions map, socketmode loop, multiPoster/dryPoster
   bridge_test.go  fake poster + temp bus: OUT threadmap/skip-boss/from, IN top-level/reply/echo-skip/mention-translate
 internal/cli/slackcmd.go   hatch slack [--interval 2s] [--once] [--dry-run]
 internal/paths/paths.go    SlackDir="slack", SlackConfig, SlackThreadmap
-.gitignore                 .hatch/slack/
+.gitignore                 .hatch/run/slack/
 ```
 
 **Testability:** poster ẩn sau interface `poster{ post(from,threadTS,name,icon,text) (ts,error) }`. OUT (`mirrorOnce`), IN (`handleIncoming(incoming)`) và `translateMentions` là method thuần, test bằng fake poster + temp bus. Toàn bộ slack-go (multiPoster, socketmode, auth.test) nằm trong `runtime.go`.
@@ -123,8 +123,8 @@ internal/paths/paths.go    SlackDir="slack", SlackConfig, SlackThreadmap
 - **Mỗi agent một app**: scope `chat:write`, mời vào channel; bot-token `xoxb-`.
 - Nạp qua env `HATCH_SLACK_{APP_TOKEN,BOT_TOKEN,CHANNEL,BOSS}` +
   `HATCH_SLACK_TOKEN_<AGENT>` (vd `HATCH_SLACK_TOKEN_CLAUDE_CODE`), hoặc
-  `.hatch/slack/config.json` (field `agents{id→token}`).
-- **Không hardcode, không commit token.** `.hatch/slack/` vào `.gitignore`.
+  `.hatch/run/slack/config.json` (field `agents{id→token}`).
+- **Không hardcode, không commit token.** `.hatch/run/slack/` vào `.gitignore`.
 - Đây là Slack workspace của chính boss, chính boss yêu cầu → không vướng rule
   "comm ra ngoài chưa review".
 
@@ -146,5 +146,5 @@ internal/paths/paths.go    SlackDir="slack", SlackConfig, SlackThreadmap
 - [ ] `make lint` xanh; `go test ./...` và `-tags hatch_legacy` đều xanh.
 - [ ] Build sạch cả hai tag.
 - [ ] `hatch slack --once` chạy OUT một nhịp không cần Socket Mode (smoke).
-- [ ] Token không lọt vào git; `.hatch/slack/` gitignored.
+- [ ] Token không lọt vào git; `.hatch/run/slack/` gitignored.
 - [ ] @tag reviewer khác, không tự merge (human gate).

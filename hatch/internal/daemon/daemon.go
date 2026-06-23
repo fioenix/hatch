@@ -10,7 +10,10 @@
 package daemon
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,20 +38,27 @@ type Dispatcher struct {
 	Cfg    wake.Config
 
 	mu      sync.Mutex
+	wg      sync.WaitGroup             // in-flight dispatch goroutines (for drain)
 	working map[string]bool            // members with an in-flight Runner.Wake
 	state   wake.State                 // wake policy memory across ticks
 	pending map[string][]model.Message // held payloads awaiting redelivery
 	cursor  time.Time                  // newest message TS already processed
 }
 
+// Wait blocks until all in-flight wakes finish (graceful drain; used on shutdown
+// and in tests so async file writes settle).
+func (d *Dispatcher) Wait() { d.wg.Wait() }
+
 // New returns a Dispatcher ready to Tick.
 func New(b *bus.Bus, rs *roster.Store, r Runner, cfg wake.Config) *Dispatcher {
-	return &Dispatcher{
+	d := &Dispatcher{
 		Bus: b, Roster: rs, Runner: r, Cfg: cfg,
 		working: map[string]bool{},
 		state:   freshState(),
 		pending: map[string][]model.Message{},
 	}
+	d.cursor = d.loadCursor() // survive restarts: don't replay the whole backlog
+	return d
 }
 
 func freshState() wake.State {
@@ -74,14 +84,12 @@ func (d *Dispatcher) Tick(now time.Time) (dispatched []model.WakeDecision, escal
 	}
 	if maxTS.After(d.cursor) {
 		d.cursor = maxTS
+		d.saveCursor()
 	}
 
-	// Snapshot the live working set and recompute open asks for the policy.
-	d.mu.Lock()
-	for k, v := range d.working {
-		d.state.Working[k] = v
-	}
-	d.mu.Unlock()
+	// Replace (not merge) the working snapshot so a finished runner stops
+	// debouncing future wakes; recompute open asks for the policy.
+	d.state.Working = d.snapshotWorking()
 	d.state.OpenAsks = d.openAsks()
 
 	decisions, esc, next := wake.Decide(r, newMsgs, d.state, d.Cfg, now)
@@ -90,28 +98,29 @@ func (d *Dispatcher) Tick(now time.Time) (dispatched []model.WakeDecision, escal
 	// Merge held payloads from earlier ticks, then dispatch or re-hold.
 	for i := range decisions {
 		dec := decisions[i]
-		if buf := d.pending[dec.Agent]; len(buf) > 0 {
+		if buf := d.takePending(dec.Agent); len(buf) > 0 {
 			dec.Payload = append(append([]model.Message{}, buf...), dec.Payload...)
 		}
 		if dec.Hold == model.HoldNone && !d.isWorking(dec.Agent) {
-			delete(d.pending, dec.Agent)
 			d.dispatch(r[dec.Agent], dec.Payload)
 			dispatched = append(dispatched, dec)
 		} else {
-			d.pending[dec.Agent] = dec.Payload
+			d.holdPending(dec.Agent, dec.Payload)
 		}
 	}
 
 	// Flush members that became free and still have buffered payloads.
-	for _, agent := range sortedPending(d.pending) {
+	for _, agent := range d.pendingAgents() {
 		if d.isWorking(agent) {
 			continue
 		}
 		if _, queued := decisionFor(decisions, agent); queued {
 			continue // already handled above this tick
 		}
-		buf := d.pending[agent]
-		delete(d.pending, agent)
+		buf := d.takePending(agent)
+		if len(buf) == 0 {
+			continue
+		}
 		d.dispatch(r[agent], buf)
 		dispatched = append(dispatched, model.WakeDecision{Agent: agent, Reason: model.WakeMention, Payload: buf})
 	}
@@ -133,12 +142,17 @@ func (d *Dispatcher) dispatch(m model.Member, payload []model.Message) {
 	}
 	d.setWorking(m.ID, true)
 	_ = d.Roster.SetStatus(m.ID, model.MemberOnline)
+	d.wg.Add(1)
 	go func() {
-		defer func() {
-			d.setWorking(m.ID, false)
-			_ = d.Roster.SetStatus(m.ID, model.MemberSuspended)
-		}()
-		_ = d.Runner.Wake(m, payload)
+		defer d.wg.Done()
+		err := d.Runner.Wake(m, payload)
+		// On failure, requeue before clearing the working flag so the next tick
+		// redelivers it — a spawn/resume error never silently drops the message.
+		if err != nil {
+			d.requeue(m.ID, payload)
+		}
+		d.setWorking(m.ID, false)
+		_ = d.Roster.SetStatus(m.ID, model.MemberSuspended)
 	}()
 }
 
@@ -231,11 +245,67 @@ func decisionFor(ds []model.WakeDecision, agent string) (model.WakeDecision, boo
 	return model.WakeDecision{}, false
 }
 
-func sortedPending(m map[string][]model.Message) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
+// snapshotWorking returns a fresh copy of the live working set (Tick replaces
+// the policy's Working with this each cycle so finished runners free up).
+func (d *Dispatcher) snapshotWorking() map[string]bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	m := make(map[string]bool, len(d.working))
+	for k, v := range d.working {
+		m[k] = v
+	}
+	return m
+}
+
+func (d *Dispatcher) takePending(agent string) []model.Message {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	p := d.pending[agent]
+	delete(d.pending, agent)
+	return p
+}
+
+func (d *Dispatcher) holdPending(agent string, payload []model.Message) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.pending[agent] = payload
+}
+
+// requeue prepends a failed delivery's payload so the next tick retries it.
+func (d *Dispatcher) requeue(agent string, payload []model.Message) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.pending[agent] = append(append([]model.Message{}, payload...), d.pending[agent]...)
+}
+
+func (d *Dispatcher) pendingAgents() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	out := make([]string, 0, len(d.pending))
+	for k := range d.pending {
 		out = append(out, k)
 	}
 	sort.Strings(out)
 	return out
+}
+
+func (d *Dispatcher) cursorFile() string { return filepath.Join(d.Bus.L.Run(), "daemon.cursor") }
+
+// loadCursor restores the processed-cursor; a missing/invalid file is the zero
+// time (process the whole backlog once, as on a fresh workspace).
+func (d *Dispatcher) loadCursor() time.Time {
+	raw, err := os.ReadFile(d.cursorFile())
+	if err != nil {
+		return time.Time{}
+	}
+	t, _ := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(raw)))
+	return t
+}
+
+func (d *Dispatcher) saveCursor() {
+	if d.cursor.IsZero() {
+		return
+	}
+	_ = os.MkdirAll(d.Bus.L.Run(), 0o755)
+	_ = os.WriteFile(d.cursorFile(), []byte(d.cursor.Format(time.RFC3339Nano)), 0o644)
 }

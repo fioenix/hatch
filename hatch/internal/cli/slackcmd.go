@@ -21,7 +21,7 @@ func newSlackCmd() *cobra.Command {
 			"Setup: one \"hub\" app with Socket Mode (scopes chat:write, chat:write.customize, " +
 			"channels:history, connections:write; subscribe to message.channels) plus one app per agent " +
 			"(scope chat:write), each invited to the channel. Config from HATCH_SLACK_{APP_TOKEN," +
-			"BOT_TOKEN,CHANNEL,BOSS} + HATCH_SLACK_TOKEN_<AGENT>, or .hatch/slack/config.json " +
+			"BOT_TOKEN,CHANNEL,BOSS,BOSS_USER} + HATCH_SLACK_TOKEN_<AGENT>, or .hatch/run/slack/config.json " +
 			"(gitignored — never commit tokens). Ctrl-C to stop.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := loadWorkspace()
