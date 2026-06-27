@@ -18,6 +18,7 @@ const (
 // Payload. A non-empty Hold means the wake is deferred, not cancelled.
 type WakeDecision struct {
 	Agent   string     `json:"agent"`
+	Thread  string     `json:"thread"` // bus channel this wake is about (one wake per agent+thread)
 	Reason  WakeReason `json:"reason"`
 	Payload []Message  `json:"payload"`
 	Hold    HoldReason `json:"hold,omitempty"` // "" = deliver now

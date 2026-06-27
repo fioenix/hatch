@@ -179,11 +179,13 @@ func Decide(roster model.Roster, msgs []model.Message, st State, cfg Config, now
 				hold = model.HoldRate // Rule 6
 			}
 
-			// Rule 2: coalesce per member.
-			d, ok := wakes[a]
+			// Rule 2: coalesce per (member, thread) so each task thread is woken
+			// with its own session context, never merged across threads.
+			ck := agentThreadKey(a, m.Channel)
+			d, ok := wakes[ck]
 			if !ok {
-				d = &model.WakeDecision{Agent: a, Reason: reason}
-				wakes[a] = d
+				d = &model.WakeDecision{Agent: a, Thread: m.Channel, Reason: reason}
+				wakes[ck] = d
 			}
 			if reason == model.WakeReplyAsk {
 				d.Reason = reason // a direct answer to my question outranks a generic mention
@@ -288,6 +290,9 @@ func resetEpisodeLoops(st *State, e string) {
 	}
 	delete(st.LastTrig, e)
 }
+
+// agentThreadKey is the coalescing key: one wake per (member, bus thread).
+func agentThreadKey(a, thread string) string { return a + "\x00" + thread }
 
 func pairKey(episode, a, b string) string {
 	if a > b {

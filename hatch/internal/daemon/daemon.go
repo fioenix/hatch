@@ -95,34 +95,42 @@ func (d *Dispatcher) Tick(now time.Time) (dispatched []model.WakeDecision, escal
 	decisions, esc, next := wake.Decide(r, newMsgs, d.state, d.Cfg, now)
 	d.state = next
 
-	// Merge held payloads from earlier ticks, then dispatch or re-hold.
+	// Merge held payloads from earlier ticks, then dispatch or re-hold. Wakes are
+	// keyed by (agent, thread): each task thread carries its own session, so they
+	// are never merged. Dispatch stays serial per agent (one in-flight runner per
+	// member) — concurrent runs in one repo would race the working tree; true
+	// per-thread parallelism needs worktree isolation (a separate change).
+	handled := map[string]bool{}
 	for i := range decisions {
 		dec := decisions[i]
-		if buf := d.takePending(dec.Agent); len(buf) > 0 {
+		ck := threadKey(dec.Agent, dec.Thread)
+		handled[ck] = true
+		if buf := d.takePending(ck); len(buf) > 0 {
 			dec.Payload = append(append([]model.Message{}, buf...), dec.Payload...)
 		}
 		if dec.Hold == model.HoldNone && !d.isWorking(dec.Agent) {
-			d.dispatch(r[dec.Agent], dec.Payload)
+			d.dispatch(r[dec.Agent], dec.Thread, dec.Payload)
 			dispatched = append(dispatched, dec)
 		} else {
-			d.holdPending(dec.Agent, dec.Payload)
+			d.holdPending(ck, dec.Payload)
 		}
 	}
 
-	// Flush members that became free and still have buffered payloads.
-	for _, agent := range d.pendingAgents() {
+	// Flush threads that became free and still have buffered payloads.
+	for _, ck := range d.pendingKeys() {
+		if handled[ck] {
+			continue // re-held above this tick (e.g. rate/working); don't override
+		}
+		agent, thread := splitThreadKey(ck)
 		if d.isWorking(agent) {
 			continue
 		}
-		if _, queued := decisionFor(decisions, agent); queued {
-			continue // already handled above this tick
-		}
-		buf := d.takePending(agent)
+		buf := d.takePending(ck)
 		if len(buf) == 0 {
 			continue
 		}
-		d.dispatch(r[agent], buf)
-		dispatched = append(dispatched, model.WakeDecision{Agent: agent, Reason: model.WakeMention, Payload: buf})
+		d.dispatch(r[agent], thread, buf)
+		dispatched = append(dispatched, model.WakeDecision{Agent: agent, Thread: thread, Reason: model.WakeMention, Payload: buf})
 	}
 
 	for _, e := range esc {
@@ -136,7 +144,7 @@ func (d *Dispatcher) Tick(now time.Time) (dispatched []model.WakeDecision, escal
 // dispatch runs a Runner on a background goroutine, marking the member working
 // for the duration and suspended on completion. A member with no session keeps
 // running (fresh contact); presence errors are non-fatal.
-func (d *Dispatcher) dispatch(m model.Member, payload []model.Message) {
+func (d *Dispatcher) dispatch(m model.Member, thread string, payload []model.Message) {
 	if m.ID == "" {
 		return
 	}
@@ -146,10 +154,11 @@ func (d *Dispatcher) dispatch(m model.Member, payload []model.Message) {
 	go func() {
 		defer d.wg.Done()
 		err := d.Runner.Wake(m, payload)
-		// On failure, requeue before clearing the working flag so the next tick
-		// redelivers it — a spawn/resume error never silently drops the message.
+		// On failure, requeue (keyed by this thread) before clearing the working
+		// flag so the next tick redelivers it — a spawn/resume error never
+		// silently drops the message.
 		if err != nil {
-			d.requeue(m.ID, payload)
+			d.requeue(threadKey(m.ID, thread), payload)
 		}
 		d.setWorking(m.ID, false)
 		_ = d.Roster.SetStatus(m.ID, model.MemberSuspended)
@@ -236,13 +245,16 @@ func (d *Dispatcher) setWorking(id string, v bool) {
 	}
 }
 
-func decisionFor(ds []model.WakeDecision, agent string) (model.WakeDecision, bool) {
-	for _, x := range ds {
-		if x.Agent == agent {
-			return x, true
-		}
+// threadKey / splitThreadKey compose and split the (agent, thread) pending key,
+// keeping each task thread's held payload separate (so resume targets the right
+// session). Bus channel ids never contain the NUL separator.
+func threadKey(agent, thread string) string { return agent + "\x00" + thread }
+
+func splitThreadKey(ck string) (agent, thread string) {
+	if i := strings.IndexByte(ck, 0); i >= 0 {
+		return ck[:i], ck[i+1:]
 	}
-	return model.WakeDecision{}, false
+	return ck, ""
 }
 
 // snapshotWorking returns a fresh copy of the live working set (Tick replaces
@@ -278,7 +290,8 @@ func (d *Dispatcher) requeue(agent string, payload []model.Message) {
 	d.pending[agent] = append(append([]model.Message{}, payload...), d.pending[agent]...)
 }
 
-func (d *Dispatcher) pendingAgents() []string {
+// pendingKeys returns the (agent, thread) keys with buffered payloads, sorted.
+func (d *Dispatcher) pendingKeys() []string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	out := make([]string, 0, len(d.pending))
