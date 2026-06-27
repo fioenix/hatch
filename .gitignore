@@ -4,10 +4,15 @@ node_modules/
 __pycache__/
 promo/
 
-# Hatch local workspace runtime (the .hatch SSOT + kb/ are committed)
-/.hatch/board/
-/.hatch/bus/
-/.hatch/ledger/
-/.hatch/compiled/
-/.hatch/mcp/
-/.hatch/logs/
+# Hatch: only the SSOT under .hatch is committed; everything else (run/, and any
+# stray runtime from an old build: bus/, logs/, …) is ignored via this whitelist.
+/.hatch/*
+!/.hatch/charter.md
+!/.hatch/working-agreement.md
+!/.hatch/registry.yaml
+!/.hatch/workflow.yaml
+!/.hatch/roles/
+!/.hatch/context/
+!/.hatch/kb/
+!/.hatch/protocol/
+!/.hatch/templates/

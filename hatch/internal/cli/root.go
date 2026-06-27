@@ -18,15 +18,14 @@ func NewRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "hatch",
 		Short:         "Hatch — a multi-agent coding squad on the filesystem",
-		Long:          "Hatch orchestrates multiple coding-agent CLIs as one squad: a single source of truth compiled per agent, a file-based board, an append-only ledger, and a shared knowledge base.",
+		Long:          "Hatch is an embedded harness for a squad of coding-agent CLIs sharing one repo: a single source of truth compiled per agent, a shared chat bus (one thread = one task), a wake daemon that delivers @mentions, an optional Slack bridge, and a shared knowledge base.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       Version,
 	}
 	// The embedded-harness command set: SSOT compile, the MCP server agents
 	// drive themselves through, read-only views over the shared chat + ledger,
-	// and the knowledge base. Self-driving operator commands (run/plan/watch,
-	// ceremonies, tickets, …) are archived behind the `hatch_legacy` build tag.
+	// the wake daemon + Slack bridge, and the knowledge base.
 	root.AddCommand(
 		newSetupCmd(),
 		newInitCmd(),
@@ -36,9 +35,11 @@ func NewRoot() *cobra.Command {
 		newCompileCmd(),
 		newValidateCmd(),
 		newStatusCmd(),
+		newRosterCmd(),
+		newDaemonCmd(),
+		newSlackCmd(),
+		newSessionsCmd(),
 		newKBCmd(),
-		newBoardCmd(),
-		newChatCmd(),
 		newSyncCmd(),
 		newHookCmd(),
 		newMsgCmd(),
@@ -52,7 +53,6 @@ func NewRoot() *cobra.Command {
 		newDoctorCmd(),
 		newMCPCmd(),
 	)
-	addLegacyCommands(root)
 	return root
 }
 

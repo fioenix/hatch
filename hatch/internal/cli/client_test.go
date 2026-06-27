@@ -1,5 +1,3 @@
-//go:build !hatch_legacy
-
 package cli
 
 import (

@@ -1,6 +1,11 @@
 package model
 
-// Gate kinds understood by the workflow engine.
+// Workflow is a *prose* description of the squad's process: it compiles into the
+// instruction surfaces so agents self-follow it via chat. It is not an engine —
+// there are no tickets or lane directories; a task is a bus thread and its state
+// is inferred from the conversation.
+
+// Gate kinds, rendered as prose guidance (not enforced by an engine).
 const (
 	GateCommand   = "command"        // run a shell command, exit 0 = pass
 	GateChecklist = "checklist"      // a DoD checklist referenced by file
@@ -17,7 +22,8 @@ type Gate struct {
 	Field string `yaml:"field,omitempty"` // required-field gates
 }
 
-// Lane is a board column; it maps to a directory under board/.
+// Lane is a stage a task moves through (backlog → in-progress → review → done),
+// described as prose — not a board directory.
 type Lane struct {
 	ID       string `yaml:"id"`
 	WIPLimit int    `yaml:"wip-limit,omitempty"`

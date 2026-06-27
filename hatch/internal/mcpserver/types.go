@@ -55,6 +55,22 @@ type whoamiOut struct {
 	Roles []string `json:"roles"`
 }
 
+type joinIn struct {
+	Kind      string `json:"kind,omitempty" jsonschema:"agent kind: claude|codex|agy|kiro|mock|user (default: from registry)"`
+	Roles     string `json:"roles,omitempty" jsonschema:"comma-separated role ids held in the room (default: from registry)"`
+	SessionID string `json:"session_id,omitempty" jsonschema:"resumable session id holding your memory, so teammates can wake the same you"`
+	Note      string `json:"note,omitempty" jsonschema:"optional status note"`
+}
+
+type joinOut struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type rosterOut struct {
+	Members []string `json:"members"`
+}
+
 type textOut struct {
 	Text string `json:"text"`
 }

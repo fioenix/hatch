@@ -7,14 +7,6 @@ package port
 
 import "github.com/fioenix/overclaud/hatch/internal/model"
 
-// Board is the ticket-store port.
-type Board interface {
-	ListLane(lane string) ([]model.Ticket, error)
-	Find(id string, lanes []string) (model.Ticket, bool, error)
-	Path(t model.Ticket) string
-	Write(t model.Ticket) (string, error)
-}
-
 // Ledger is the append-only audit-log port.
 type Ledger interface {
 	Append(e model.Entry) error
