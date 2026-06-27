@@ -37,7 +37,13 @@ Most users dump everything into one CLAUDE.md. The result: bloated context, wron
 
 ### Option 1: Install as a Skill (Recommended)
 
-Download [`overclaud.skill`](overclaud.skill) from this repo, then:
+Build the skill bundle from source (or grab it from [Releases](https://github.com/fioenix/overclaud/releases)):
+
+```bash
+make skill   # packages skill/ → overclaud.skill
+```
+
+Then install it:
 
 **Claude Code:**
 ```bash
