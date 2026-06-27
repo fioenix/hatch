@@ -59,6 +59,7 @@ func newDaemonCmd() *cobra.Command {
 
 			if once {
 				tick()
+				d.Wait() // let in-flight wakes finish before exit (don't drop checkpointed messages)
 				return nil
 			}
 
@@ -70,7 +71,9 @@ func newDaemonCmd() *cobra.Command {
 			for {
 				select {
 				case <-sig:
-					fmt.Fprintln(out, "\nhatch watch: stopped")
+					fmt.Fprintln(out, "\nhatch watch: draining in-flight wakes…")
+					d.Wait() // graceful shutdown: finish dispatched wakes (best-effort; SIGKILL still drops)
+					fmt.Fprintln(out, "hatch watch: stopped")
 					return nil
 				case <-t.C:
 					tick()

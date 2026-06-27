@@ -125,6 +125,9 @@ func (d *Dispatcher) Tick(now time.Time) (dispatched []model.WakeDecision, escal
 		if d.isWorking(agent) {
 			continue
 		}
+		if !r.Reachable(agent) {
+			continue // member left/offline since it was queued; hold until reachable again
+		}
 		buf := d.takePending(ck)
 		if len(buf) == 0 {
 			continue

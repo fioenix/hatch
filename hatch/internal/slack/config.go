@@ -17,7 +17,7 @@ import (
 
 // Config holds the bridge's routing and the boss's own Slack credentials.
 // Tokens are loaded from the environment first, then a gitignored
-// .hatch/slack/config.json. They are never committed.
+// .hatch/run/slack/config.json. They are never committed.
 type Config struct {
 	AppToken   string            `json:"app_token"`    // xapp- (hub app, Socket Mode / inbound)
 	HubToken   string            `json:"hub_token"`    // xoxb- (hub app: escalations + impersonation fallback)
