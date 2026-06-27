@@ -100,11 +100,11 @@ repo/
 └── <antigravity-config>    ← compiled cho Antigravity
 ```
 
-## Quan hệ với overclaud
+## Nền tảng: layering + token optimization
 
-overclaud cung cấp **lý thuyết layering + token-optimization + templates** cho riêng Claude. Trong Hatch:
+Compiler dựa trên **lý thuyết layering + token-optimization + templates** cho Claude:
 
-- overclaud trở thành **một backend của compiler** — phần sinh ra `CLAUDE.md`/`.claude/` tái dùng templates và nguyên tắc token của overclaud.
+- Phần sinh ra `CLAUDE.md`/`.claude/` là **một backend của compiler**, tái dùng các template và nguyên tắc token đó.
 - Các nguyên tắc "mỗi từ phải đáng giá token", "đúng scope đúng nơi" được nâng từ *1 agent × N surface* lên *N agent × M surface*.
 
 ## Trạng thái = nguồn sự thật phân tán nhưng hội tụ

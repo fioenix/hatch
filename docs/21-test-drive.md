@@ -26,7 +26,7 @@ Dùng **Claude + Codex** (thường đã đăng nhập). agy/Kiro cần login th
 ## 1. Pre-flight (1 lần)
 
 ```bash
-cd /Users/fioenix/Projects/overclaud      # hoặc repo của bạn
+cd /Users/fioenix/Projects/hatch      # hoặc repo của bạn
 hatch doctor
 ```
 
@@ -51,7 +51,7 @@ Cả 3 đều `cd` vào repo trước. Vai trò:
 | **T2** | `codex` | worker |
 
 > Branch chưa push → Claude phải nạp plugin bằng `--plugin-dir`. Khi đã push thì
-> thay bằng `/plugin marketplace add fioenix/overclaud` + `/plugin install hatch@hatch`.
+> thay bằng `/plugin marketplace add fioenix/hatch` + `/plugin install hatch@hatch`.
 
 ---
 

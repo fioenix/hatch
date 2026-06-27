@@ -1,7 +1,7 @@
 # Hatch — Team Simulation Design (chat-first, peer-to-peer, wake-on-message)
 
 _Ngày: 22/06/2026 · Trạng thái: Approved design → implementation_
-_Tiền đề: [nghiên cứu paperclip vs overclaud](../../research/2026-06-22-paperclip-vs-overclaud-chat-first.md). Đã brainstorm + chốt với owner qua nhiều vòng._
+_Tiền đề: [nghiên cứu paperclip vs Hatch](../../research/2026-06-22-paperclip-vs-hatch-chat-first.md). Đã brainstorm + chốt với owner qua nhiều vòng._
 
 ---
 

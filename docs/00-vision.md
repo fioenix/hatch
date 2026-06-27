@@ -10,7 +10,7 @@ Một developer hôm nay không còn dùng một agent. Họ có Claude Code là
 
 3. **Hỗn loạn khi cùng làm.** Hai agent sửa cùng một file. Không ai biết agent kia đang làm gì. Không có hàng đợi việc, không có hand-off, không có audit trail. Kết quả là conflict, việc trùng, và mất dấu vết "ai làm gì vì sao".
 
-overclaud đã giải quyết vế (1) và (2) cho **một** agent (Claude) qua kiến trúc layering + token optimization. Hatch mở rộng cả ba vế cho **nhiều** agent.
+Kiến trúc layering + token optimization giải quyết được vế (1) và (2) cho **một** agent (Claude). Hatch mở rộng cả ba vế cho **nhiều** agent.
 
 ## Tầm nhìn
 

@@ -21,8 +21,8 @@ Mọi thứ là file + git + quy ước. Agent tuân theo protocol thủ công; 
 **Giao được:**
 - Bộ docs này (đã có).
 - `hatch init` dạng **template thư mục** `.hatch/` để copy vào repo (charter mẫu, roles mẫu, protocol, board rỗng, registry mẫu, `kb/` rỗng + `index.md`, `workflow.yaml` chọn template scrum/kanban/spec-first/lite).
-- Compile **thủ công**: hướng dẫn + checklist để CC tự sinh `CLAUDE.md`/`AGENTS.md`/`.kiro/steering/` từ SSOT (tái dùng skill overclaud).
-- Một **skill/agent overclaud** mở rộng: "thiết lập Hatch cho repo này" — hỏi vai, agent, rồi dựng `.hatch/`.
+- Compile **thủ công**: hướng dẫn + checklist để CC tự sinh `CLAUDE.md`/`AGENTS.md`/`.kiro/steering/` từ SSOT.
+- Một **skill/agent setup** mở rộng: "thiết lập Hatch cho repo này" — hỏi vai, agent, rồi dựng `.hatch/`.
 
 **Tiêu chí xong:** một repo thật chạy được vòng `plan → claim → code → review → done` hoàn toàn bằng convention, có ledger.
 
@@ -78,5 +78,5 @@ Những câu này không chặn Phase 1. Chốt khi tới Phase 2.
 ## Việc kế tiếp ngay
 
 1. Review & chốt bộ docs này.
-2. Dựng template `.hatch/` (Phase 1) như một thư mục trong repo overclaud.
-3. Mở rộng skill overclaud để bootstrap Hatch cho một repo.
+2. Dựng template `.hatch/` (Phase 1) như một thư mục trong repo Hatch.
+3. Mở rộng skill setup để bootstrap Hatch cho một repo.

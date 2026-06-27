@@ -1,4 +1,4 @@
-# Paperclip → overclaud: nghiên cứu & đề xuất chuyển sang Chat-first
+# Paperclip → Hatch: nghiên cứu & đề xuất chuyển sang Chat-first
 
 _Ngày: 22/06/2026 · Tác giả: Conductor (claude-code) · Trạng thái: Proposal (chờ chốt)_
 _Nguồn: đọc trực tiếp repo [paperclipai/paperclip](https://github.com/paperclipai/paperclip) (README, ROADMAP, `doc/TASKS.md`, `doc/TASKS-mcp.md`, `doc/execution-semantics.md`) + codebase Hatch hiện tại (`hatch/`, `.hatch/`)._
@@ -9,7 +9,7 @@ _Nguồn: đọc trực tiếp repo [paperclipai/paperclip](https://github.com/p
 
 - **Paperclip không phải "task manager nhẹ".** Nó là một **control plane đầy đủ** để vận hành "AI company": Node server + React UI + Postgres, org chart, budget, governance, heartbeat scheduler. Khẩu hiệu của họ: _"If OpenClaw is an employee, Paperclip is the company."_
 - **"Backlog-as-comms" của paperclip là hệ quả, không phải lựa chọn thẩm mỹ.** Vì paperclip **chủ động lái agent** (push: heartbeat scheduler wake agent dậy), nó **bắt buộc** phải có state máy-đọc-được: `status` enum, single-assignee = atomic checkout lock, blocker graph. Toàn bộ `execution-semantics.md` (700 dòng về checkout lock, stranded-work recovery, monitor, watchdog) tồn tại **chỉ vì** control plane chịu trách nhiệm liveness.
-- **overclaud/Hatch theo mô hình ngược lại: embedded, không điều khiển** (pull: agent đã chạy sẵn, tự lái, tự đọc bus). Khi bạn **không lái** agent, bạn **không cần** status/lock/heartbeat/recovery. Bạn cần một **cuộc hội thoại chung** mà các agent đang sống poll vào.
+- **Hatch theo mô hình ngược lại: embedded, không điều khiển** (pull: agent đã chạy sẵn, tự lái, tự đọc bus). Khi bạn **không lái** agent, bạn **không cần** status/lock/heartbeat/recovery. Bạn cần một **cuộc hội thoại chung** mà các agent đang sống poll vào.
 - **Vì vậy chat-first không chỉ là một UX choice — nó là kiến trúc đúng cho mô hình embedded.** Đề xuất: **chat = event log nguồn-sự-thật-duy-nhất; "task/board" = projection (reduce) trên chat, không phải store riêng.** Đây đúng là phép nghịch đảo của paperclip.
 - **Tác động code: GIẢM, không tăng.** Hatch đang là hybrid (board lane store + ledger _và_ bus). Chat-first cho phép **xóa** board-lane-store + ledger, **nâng** các workflow verb (claim/done/block/review/handoff) từ prose trong CLAUDE.md thành **control message** hạng nhất, và biến `hatch board`/`status` thành **reducer** trên bus.
 
@@ -52,7 +52,7 @@ Một server đơn xử lý 12 subsystem: Identity & Access · Org Chart & Agent
 
 ## 2. Insight cốt lõi: Push (controller) vs Pull (embedded)
 
-| | **Paperclip** | **overclaud / Hatch** |
+| | **Paperclip** | **Hatch** |
 |---|---|---|
 | Quan hệ với agent | **Controller** — spawn & wake agent qua heartbeat | **Embedded** — agent đã chạy sẵn (terminal của user), tự lái |
 | Mô hình | **Push:** scheduler đẩy việc vào agent | **Pull:** agent đọc bus rồi tự hành động |
@@ -65,7 +65,7 @@ Một server đơn xử lý 12 subsystem: Identity & Access · Org Chart & Agent
 
 ---
 
-## 3. Mô hình Chat-first đề xuất cho overclaud
+## 3. Mô hình Chat-first đề xuất cho Hatch
 
 ### 3.1 Nguyên lý: Chat là event log, task/board là projection
 - **Bus (chat) = append-only event log, source-of-truth duy nhất.** Mỗi thread = một task. Mỗi message = một event bất biến.
@@ -95,9 +95,9 @@ done    by @reviewer "DoD met"        → lane=done
 
 `board`/`status` = `reduce(thread)` cho mọi thread. Không có lane store. Không thể lệch sync (chỉ có một nguồn).
 
-### 3.3 Bảng chiếu: paperclip primitive → overclaud chat-first
+### 3.3 Bảng chiếu: paperclip primitive → Hatch chat-first
 
-| Bài toán | Paperclip (backlog-first) | overclaud (chat-first) |
+| Bài toán | Paperclip (backlog-first) | Hatch (chat-first) |
 |---|---|---|
 | Đơn vị công việc | Issue (entity cứng) | Thread (chuỗi message) |
 | Trạng thái | `status` field (lưu) | Reduce control message (tính) |
@@ -127,7 +127,7 @@ Trung thực: backlog-first cho không 3 thứ mà chat-first phải chủ độ
    - Giải lean: **không cần auto-recovery** (embedded — agent là terminal sống, user thấy khi nó chết). Thay vào đó board projection **đánh dấu** thread `in-progress` mà không có owner hoặc im lặng quá ngưỡng là **"stalled"** — để **người/conductor** xử lý. Mượn _câu hỏi_ "what moves this forward next?" của paperclip làm **design check cho view**, không phải làm engine.
 
 4. **Kỷ luật posting.**
-   - Mất gì: paperclip _ép_ state; overclaud _thuyết phục_ (protocol prose).
+   - Mất gì: paperclip _ép_ state; Hatch _thuyết phục_ (protocol prose).
    - Giải lean: làm control verb thành **MCP tool một-phát rẻ** (`chat_claim`, `chat_done`, `chat_block`…) để post state có cấu trúc chỉ tốn 1 call; board làm chỗ thiếu sót **lộ ra** ("T-3: no owner, stale 2h"). Bù enforcement bằng visibility.
 
 ---
@@ -181,7 +181,7 @@ Trung thực: backlog-first cho không 3 thứ mà chat-first phải chủ độ
 ### Option C — Backlog-first như paperclip (issue là object, chat treo dưới)
 - **Là gì:** clone mô hình paperclip ở quy mô nhỏ.
 - **Được:** state máy-đọc, ownership cứng, thân thiện scheduler.
-- **Ai trả giá:** phải xây + nuôi schema + **toàn bộ liveness/recovery contract** — mà overclaud **không có scheduler nào tiêu thụ**. Complexity thuần lỗ, đi ngược charter "embedded, không điều khiển". Không khuyến nghị.
+- **Ai trả giá:** phải xây + nuôi schema + **toàn bộ liveness/recovery contract** — mà Hatch **không có scheduler nào tiêu thụ**. Complexity thuần lỗ, đi ngược charter "embedded, không điều khiển". Không khuyến nghị.
 
 ---
 
@@ -211,4 +211,4 @@ Trung thực: backlog-first cho không 3 thứ mà chat-first phải chủ độ
 
 ## 10. Một dòng để nhớ
 
-> Paperclip đặt **chat dưới task** vì nó **lái** agent. overclaud nên đặt **task dưới chat** vì nó **không lái** — task chỉ là cái bóng (projection) mà cuộc hội thoại đổ xuống. Chọn đúng nghịch đảo này là chọn đúng độ phức tạp mình phải nuôi.
+> Paperclip đặt **chat dưới task** vì nó **lái** agent. Hatch nên đặt **task dưới chat** vì nó **không lái** — task chỉ là cái bóng (projection) mà cuộc hội thoại đổ xuống. Chọn đúng nghịch đảo này là chọn đúng độ phức tạp mình phải nuôi.

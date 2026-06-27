@@ -1,6 +1,6 @@
 # 04 — Context & Compiler
 
-Hai mục tiêu overclaud nâng lên multi-agent: **hết drift** (1 nguồn → N output) và **tiết kiệm token** (mỗi agent nạp tối thiểu).
+Hai mục tiêu Hatch nâng lên multi-agent: **hết drift** (1 nguồn → N output) và **tiết kiệm token** (mỗi agent nạp tối thiểu).
 
 ## SSOT vs Knowledge Base — hai loại tri thức
 
@@ -49,14 +49,14 @@ Giả sử context đầy đủ ~ 8.000 token. Naïve: mỗi agent nạp tất c
 | Naïve (nạp tất cả) | ~8.000 |
 | Hatch (L0 ~300 + L1 ~700 + con trỏ) | ~1.000; L2 chỉ nạp khi cần |
 
-Với 4 agent × nhiều message/ngày, chênh lệch tích lũy rất lớn (xem bảng lãng phí token trong [overclaud README](../../README.md)).
+Với 4 agent × nhiều message/ngày, chênh lệch tích lũy rất lớn.
 
 ## Compiler: SSOT → per-agent
 
 ```
                     ┌──────────────┐
   charter (L0) ─────┤              │
-  roles  (L1) ──────┤   COMPILER   ├──► CLAUDE.md            (backend: overclaud)
+  roles  (L1) ──────┤   COMPILER   ├──► CLAUDE.md            (backend: claude)
   registry binding ─┤              ├──► AGENTS.md            (backend: codex)
   context (con trỏ)─┤              ├──► .kiro/steering/*.md  (backend: kiro)
                     └──────┬───────┘──► <antigravity config> (backend: antigravity)
@@ -69,11 +69,11 @@ Với 4 agent × nhiều message/ngày, chênh lệch tích lũy rất lớn (xe
 1. Đọc registry → biết agent giữ vai gì, surface nào.
 2. Ghép `charter` (L0) + role file của các vai đó (L1) + danh sách con trỏ context (đường dẫn tới `context/`, không nhúng nội dung).
 3. Áp **adapter theo agent** (định dạng/cú pháp native):
-   - Claude Code → cú pháp `CLAUDE.md`, có thể tách `.claude/rules/` (tái dùng templates overclaud).
+   - Claude Code → cú pháp `CLAUDE.md`, có thể tách `.claude/rules/`.
    - Codex → `AGENTS.md`.
    - Kiro → nhiều file `.kiro/steering/` (Kiro thích tách mảnh + spec).
    - Antigravity → theo config của nó.
-4. Áp **token pass** (nguyên tắc overclaud: bỏ thừa, mỗi từ đáng giá).
+4. Áp **token pass** (nguyên tắc token: bỏ thừa, mỗi từ đáng giá).
 5. Ghi output + cập nhật `manifest` (hash nguồn).
 
 ### Adapter là điểm mở rộng
