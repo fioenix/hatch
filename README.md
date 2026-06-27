@@ -1,157 +1,234 @@
-# overclaud
+# Hatch
 
-Optimize how Claude works for you — across every surface.
+> Embedded harness cho một squad coding-agent làm chung trên một repo — tối ưu instructions + context + **phối hợp** cho **nhiều** agent, trên nhiều surface. Sản phẩm thuộc hệ sinh thái **Finolabs** (Fioenix + Dinosaur Labs).
 
-> **Đang nâng cấp lên đa-agent → [Hatch](hatch/README.md).** overclaud (single-agent) đang được nâng thành một harness điều phối **nhiều coding agent** (Claude Code, Codex, Kiro, Antigravity) trên cùng một repo, tối ưu token, theo quy trình kiểu Agile. overclaud hiện tại trở thành compiler backend cho Claude bên trong Hatch. Sản phẩm thuộc hệ sinh thái **Finolabs**. Xem bộ thiết kế ở [`hatch/`](hatch/README.md).
+## Tên gọi
 
-Claude reads your instructions every message, but most users either don't set them up, put everything in one place, or waste tokens on vague guidance. **overclaud** fixes that.
+**Hatch** = ổ trứng *nở* ra thành viên đội. Đặt tên theo chủ đề khủng long/phượng hoàng của Finolabs, và khớp xương sống thiết kế — một bầy phối hợp săn mồi. (Nghĩa kép cũ "`hatch run <ticket>` nở một agent" thuộc về mô hình orchestrator trước pivot, nay đã archived — xem [doc 20](docs/20-embedded-harness-pivot.md).)
 
-## What This Is
+## Nó là gì
 
-A complete instruction optimization system for Claude:
+Hatch là một **embedded harness** cho coding agent. **Coding agent là entrypoint** — user mở Claude Code / Codex / Antigravity CLI (`agy`) / Kiro ngay trong workspace, và agent **tự lái mình**. Hatch không spawn, không điều khiển agent; nó cung cấp một **lớp nền chung** mà mọi agent với tới qua **MCP server**:
 
-- **Templates** — Ready-to-use instructions for 5 roles and 6 project types
-- **Layer architecture** — Know exactly where to put each instruction
-- **Token optimization** — Every word earns its place
-- **Installable skill** — Let Claude set everything up for you
+- một **chat dùng chung** (bus) — đồng thời là **backlog**: một thread = một task;
+- một **Knowledge Base dùng chung** (bộ nhớ chung bền của hệ);
+- một **ledger** audit append-only.
 
-## The Problem
+Nhờ đó nhiều agent trên cùng một repo phối hợp theo phong cách **async kiểu Slack** (mở thread cho mỗi task, brief tiến độ trong thread, `@mention` đồng đội, `chat_search`/`kb_search` để nhớ lại), giữ vai trò khác nhau theo một quy trình kiểu Agile, để lại audit trail đầy đủ, và **không lãng phí token** vì mỗi agent chỉ nạp đúng phần context của mình.
 
-Claude has **9+ surfaces** where instructions can live. Each has different scope, precedence, and purpose:
+> **Lưu ý về docs.** Các doc **00–19 mô tả thiết kế GỐC (trước pivot)** — khi Hatch còn là orchestrator tự lái agent. Mô hình **hiện hành** là [doc 20 — embedded-harness pivot](docs/20-embedded-harness-pivot.md). Khi đối chiếu hành vi CLI thực tế, **doc 20 thắng**.
 
-```
-Managed Policy     →  Org-wide (IT-deployed)
-User CLAUDE.md     →  Personal, all projects     ← most users stop here
-User Rules         →  Personal, path-scoped
-Project CLAUDE.md  →  Team-shared, one project
-Project Rules      →  Team-shared, path-scoped
-Subdirectory       →  On-demand loading
-Personal Prefs     →  Chat & Cowork settings
-Cowork Instructions→  Per Cowork project
-System Prompt      →  API / automation
-```
+## Phép ẩn dụ neo: một đội Agile người
 
-Most users dump everything into one CLAUDE.md. The result: bloated context, wrong scope, wasted tokens every single message.
+Mọi thành phần trong Hatch đều có một đối ứng trong một squad người. Đây là la bàn thiết kế — khi phân vân, hỏi "đội người làm việc này thế nào?".
 
-## Quick Start
-
-### Option 1: Install as a Skill (Recommended)
-
-Build the skill bundle from source (or grab it from [Releases](https://github.com/fioenix/overclaud/releases)):
-
-```bash
-make skill   # packages skill/ → overclaud.skill
-```
-
-Then install it:
-
-**Claude Code:**
-```bash
-claude install-skill overclaud.skill
-```
-
-**Cowork:** Drop the `.skill` file into your Cowork session.
-
-Then tell Claude: **"Set up my Claude instructions"**
-
-Claude will ask about your role, use cases, and preferences — then generate and install optimized instructions in the right places.
-
-### Option 2: Bootstrap Prompt (Any Surface)
-
-Copy this into any Claude conversation:
-
-```
-Fetch and follow the setup guide at:
-https://raw.githubusercontent.com/Fioenix/overclaud/main/skill/SKILL.md
-
-Read the reference files in skill/references/ and templates in skill/templates/.
-Ask me about my role and preferences, then help me set up optimized Claude instructions.
-```
-
-### Option 3: Auto-Suggest After /init (Claude Code)
-
-During setup, the skill offers to install a hook that auto-suggests optimization whenever you
-run `/init` on a new project. Claude handles the installation — no manual config needed.
-
-```
-You: set up my Claude instructions
-Claude: [runs overclaud skill, sets everything up]
-Claude: "Want me to enable auto-optimization? Next time you /init a project,
-         I'll suggest optimizing the generated CLAUDE.md automatically."
-You: yes
-Claude: ✓ Hook installed. You're all set.
-```
-
-### Option 4: Browse and Copy
-
-Explore the `skill/templates/` directory and copy what fits:
-
-| Need | Browse |
+| Thành phần Hatch | Đối ứng trong squad người |
 |---|---|
-| Global instructions by role | [`templates/global/`](skill/templates/global/) |
-| Project-level by use case | [`templates/project/`](skill/templates/project/) |
-| Cowork project instructions | [`templates/cowork/`](skill/templates/cowork/) |
-| Personal Preferences text | [`templates/personal-preferences/`](skill/templates/personal-preferences/) |
-| Path-scoped rules | [`templates/rules/`](skill/templates/rules/) |
+| `charter.md` | Team charter / mục tiêu sản phẩm |
+| `roles/` | Bản mô tả công việc (JD) từng vai |
+| `registry.yaml` | Danh bạ nhân sự + năng lực + ai giữ vai gì |
+| `kb/` | **Wiki / bộ não chung của đội** (Confluence) — đọc *và* ghi |
+| `workflow.yaml` | Quy trình làm việc của đội — template, sửa được |
+| `board/` | Bảng sprint (Jira) |
+| `ledger/` | Sổ standup / nhật ký hoạt động / git log |
+| `protocol/` | Working agreements của đội |
+| `chat` (bus) | **Slack của đội** — kênh trao đổi *và* backlog (mỗi thread = một task) |
+| `compiler` | Bộ sinh tài liệu onboarding + working agreements cho từng người mới |
+| MCP server | Cánh cửa mỗi người dùng để vào Slack chung + wiki chung |
+| agent lead/Conductor | Engineering Manager / Scrum Master — *là một agent tự lái*, không phải Hatch |
 
-## Instruction Layer Map
+> **Bộ nhớ chung.** Agents không chia sẻ RAM (mỗi con một process), nhưng cùng khai thác và đóng góp vào **Knowledge Base** (`kb/`) — y như một đội người không đọc được não nhau nhưng cùng tra cứu và cập nhật một wiki. KB là bộ nhớ chung *bền* của hệ; agent vừa *input* (tra cứu để khỏi suy diễn lại) vừa *ghi lại* (quyết định, bài học, gotcha) khi làm. Xem [09-knowledge-base](docs/09-knowledge-base.md).
 
-Understanding where to put instructions is half the battle:
+## Bốn agent, bốn vai mặc định
 
-| What to Configure | Where to Put It | Why There |
+| Agent | Vai mặc định | Vì sao |
 |---|---|---|
-| Your role, communication style, language | `~/.claude/CLAUDE.md` | Applies everywhere, personal |
-| Code style for a specific project | `.claude/rules/code-style.md` | Scoped to project, path-specific |
-| Team coding standards | `./.claude/CLAUDE.md` | Shared via git |
-| Your preference for deep-dive answers | Personal Preferences (Settings) | Applies in Chat & Cowork |
-| Cowork daily ops workflow | Cowork Project Instructions | Scoped to one Cowork project |
+| **Claude Code** (chính) | Architect / Tech Lead + **Conductor** | Reasoning sâu, giữ bức tranh tổng thể, lập kế hoạch |
+| **Kiro** | Spec-driven Implementer | Mạnh quy trình PRD → design → tasks |
+| **Codex** | Autonomous Implementer | Thực thi nhanh, lặp nhiều |
+| **Antigravity CLI** | Implementer / Utility | Linh hoạt, gánh việc phụ |
 
-See [`skill/references/layers.md`](skill/references/layers.md) for the complete architecture.
+Bảng trên **chỉ là template khởi đầu**. Vai trò là do **người dùng tự cấu hình ở từng project** qua `registry.yaml` của project đó — không fix cứng. Cùng một agent có thể giữ vai khác nhau ở các project khác nhau. Xem [02-roles](docs/02-roles.md).
 
-## Token Optimization
+## Bảy trụ thiết kế
 
-Your global CLAUDE.md loads into every message. At 100 messages/day:
+1. **Single Source of Truth → compile xuống từng agent.** Một nguồn canonical (`.hatch/`: `charter.md`, `roles/`, `registry.yaml`, `workflow.yaml`), một compiler sinh ra `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.kiro/steering` tự động. Không copy-paste, không drift.
+2. **Knowledge Base dùng chung** (`kb/`) — bộ nhớ chung bền của hệ; mọi agent đọc *và* ghi qua MCP. Thay cho "shared memory" mà các process không có.
+3. **Token optimization = context phân tầng** (L0 mission → L1 role → L2 task + KB on-demand). Mỗi agent chỉ nạp tầng của nó + thread task đang làm.
+4. **Role assignment per-project** — map vai ↔ điểm mạnh từng agent; user tự thiết kế ở mỗi project qua `registry.yaml`.
+5. **Coordination protocol = chat async.** Phối hợp qua **chat dùng chung** (bus): mở thread cho mỗi task, brief tiến độ trong thread, `@mention` để nhờ. Không agent nào spawn hay gọi trực tiếp agent khác; Hatch cũng không. Audit qua ledger.
+6. **Workflow = protocol được COMPILE, không phải engine.** `workflow.yaml` (Agile: scrum/kanban/spec-first/…) + roles + DoD vẫn là SSOT, nhưng compile biến chúng thành **văn bản hành vi** (prose) tiêm vào instruction surface từng agent. Agent đọc và *tự* tuân theo; Hatch không cưỡng chế bằng code.
+7. **Governance & audit** — ledger append-only; Definition-of-Done là **self-check agent tự chạy**; thẩm quyền agent khai trong SSOT.
 
-| Extra tokens | Daily waste | Monthly waste |
+## Mô hình phối hợp: chat async, agent tự lái
+
+- **Agent đầu tiên user mở** (thường Claude Code) mặc định là **Conductor/orchestrator** và có thể kiêm các vai khác (architect/reviewer…). Việc này khai trong `registry.yaml` và tiêm qua compile vào CLAUDE.md (kèm khối "orchestrator").
+- Conductor bẻ việc → **mở một thread cho mỗi task** trong chat, brief, `@tag` agent phù hợp.
+- Agent được tag đọc thread, làm, brief kết quả lại **trong cùng thread**. Trạng thái task suy ra từ hội thoại (post type `done`/`block`/`decision`), không cần lane/claim/gate engine.
+- Reviewer ≠ implementer tự chạy DoD self-check rồi báo done trong thread.
+- Tất cả **async** (kiểu Slack): agent chỉ phản hồi khi nó đang chạy. Không lời gọi trực tiếp giữa agent, không ai spawn ai — y như một đội người trao đổi qua Slack.
+
+## Đọc docs theo thứ tự
+
+> **Quan trọng:** Doc **00–19 mô tả thiết kế GỐC trước pivot** (Hatch tự lái agent, orchestrator là entrypoint, board là control panel, backlog kiểu Jira). Mô hình **hiện hành** nằm ở **doc 20**. Khi mâu thuẫn, **doc 20 thắng**. Đọc doc 20 trước để hiểu mô hình thực tế, rồi dùng 00–19 cho bối cảnh/ý tưởng nền.
+
+| # | Doc | Nội dung |
 |---|---|---|
-| 50 | 5,000 | 150,000 |
-| 200 | 20,000 | 600,000 |
-| 500 | 50,000 | 1,500,000 |
+| 00 | [vision](docs/00-vision.md) | Vấn đề, tầm nhìn, phép ẩn dụ squad |
+| 01 | [architecture](docs/01-architecture.md) | 6 trụ, layout `.hatch/`, các thành phần |
+| 02 | [roles](docs/02-roles.md) | Mô hình vai, map năng lực agent |
+| 03 | [coordination-protocol](docs/03-coordination-protocol.md) | Hybrid, board, claim/lock, handoff, DoD |
+| 04 | [context-compiler](docs/04-context-compiler.md) | SSOT vs KB, compile per-agent, 3 tầng token |
+| 05 | [workflow](docs/05-workflow.md) | Workflow-as-template, lifecycle, ceremonies |
+| 06 | [governance](docs/06-governance.md) | Ledger, gates, giới hạn thẩm quyền |
+| 07 | [orchestrator](docs/07-orchestrator.md) | Phase 3: CLI `hatch` launch & drive agent |
+| 08 | [roadmap](docs/08-roadmap.md) | Lộ trình Phase 1 → 2 → 3 |
+| 09 | [knowledge-base](docs/09-knowledge-base.md) | KB dùng chung: cấu trúc, đọc/ghi, vs SSOT/ledger |
+| 10 | [agent-adapters](docs/10-agent-adapters.md) | Compile surface + headless invocation từng agent CLI |
+| 11 | [communication](docs/11-communication.md) | Agents nói chuyện trực tiếp: DM · ask/reply · convene |
+| 12 | [ceremonies-escalation](docs/12-ceremonies-escalation.md) | Standup · retro · planning · escalation · decision→ADR |
+| 13 | [management](docs/13-management.md) | (thiết kế) Workload · performance · budget/lương — góc CEO/CTO |
+| 14 | [org-and-cadence](docs/14-org-and-cadence.md) | (thiết kế) Org-chart/uỷ quyền · external deps · heartbeat |
+| 15 | [obsidian-kb](docs/15-obsidian-kb.md) | (thiết kế) Obsidian vault làm KB chính qua CLI |
+| 16 | [document-templates](docs/16-document-templates.md) | (thiết kế) Template/spec tài liệu theo framework, custom được |
+| 17 | [pre-implementation](docs/17-pre-implementation.md) | Quyết định cần chốt trước khi implement toàn bộ |
+| 18 | [observability](docs/18-observability.md) | Quan sát agents: transcript · TUI · tmux/Zellij |
+| 19 | [going-real](docs/19-going-real.md) | Chuyển từ mock sang agent CLI thật (doctor, creds, an toàn) |
+| **20** | [**embedded-harness-pivot**](docs/20-embedded-harness-pivot.md) | **MÔ HÌNH HIỆN HÀNH** — Hatch là embedded harness (MCP + chat=backlog), agent tự lái; thắng khi mâu thuẫn |
 
-**overclaud** templates are designed to maximize signal per token. See [`skill/references/token-optimization.md`](skill/references/token-optimization.md) for techniques.
+Sơ đồ trực quan: [overview](docs/overview.md) (bản đồ tổng plaintext) · [architecture-diagram](docs/architecture-diagram.md) (kiến trúc + workflow + sequence).
 
-## Repo Structure
+Spec kỹ thuật: [registry](spec/registry.schema.md) · [ticket](spec/ticket.schema.md) · [ledger](spec/ledger.schema.md) · [workflow](spec/workflow.schema.md)
+
+## Cài đặt & Onboarding (user mới)
+
+### Yêu cầu
+- **Go 1.24+** (build `hatch`) và **git** (Hatch dùng filesystem + git làm database).
+- **Ít nhất một coding agent CLI** để chạy thật: Claude Code (`claude`), Codex (`codex`), Antigravity (`agy`), hoặc Kiro (`kiro-cli`). *Không bắt buộc đủ cả bốn* — `hatch doctor` chỉ cần ≥1 sẵn sàng. Muốn thử trước khi cài agent thì dùng demo bên dưới.
+
+### Bước 1 — Cài `hatch`
+
+```bash
+# A. Nhanh nhất: build + dựng workspace demo để xem ngay (không cần agent thật)
+git clone https://github.com/fioenix/hatch && cd hatch
+./scripts/onboard.sh                 # build bin/hatch + demo trong .hatch-demo/
+
+# B. Cài lên PATH
+make install                         # go install ./cmd/hatch  → $(go env GOPATH)/bin
+#   hoặc:  go install github.com/fioenix/hatch/cmd/hatch@latest
+export PATH="$(go env GOPATH)/bin:$PATH"   # nếu chưa có
+hatch --version
+```
+
+### Bước 2 — Setup máy một lần: `hatch setup`
+
+Chạy **một lần cho mỗi máy**. `hatch setup` tạo workspace global `~/.hatch` (mặc định cho mọi repo) và wire các coding-agent CLI mà MCP config của chúng nằm ở `$HOME` (`codex`, `agy`) cùng plugin Claude Code:
+
+```bash
+hatch setup                       # có terminal → hỏi chọn client; --dry-run để xem trước
+hatch setup --client cc,codex,agy # non-interactive (CI/script); --yes để chắc chắn không hỏi
+```
+
+- **`cc`** — in hướng dẫn cài **plugin** Claude Code (MCP + skill `hatch-chat` + `/hatch`):
+  ```
+  /plugin marketplace add fioenix/hatch
+  /plugin install hatch@hatch
+  ```
+- **`codex`** — gọi `codex mcp add hatch -- hatch mcp --as codex` (→ `~/.codex/config.toml`); cần `codex` trên PATH.
+- **`agy`** — Antigravity CLI (khác Gemini CLI legacy) nạp MCP **chỉ từ file HOME-level**: `~/.gemini/config/mcp_config.json` (cũ: `~/.gemini/antigravity-cli/mcp_config.json`, nay symlink). Project-local bị bỏ qua ([issue #60](https://github.com/google-antigravity/antigravity-cli/issues/60)).
+- **`kiro`** — project-scoped → không wire ở đây, để `hatch init` lo trong repo.
+
+Vì `codex`/`agy` chạy ở thư mục bạn mở, chúng tự dùng `.hatch` local của repo (qua cwd resolution) và fallback `~/.hatch` global — nên wire một lần là dùng được ở mọi repo, không lỗi.
+
+### Bước 3 — Vào repo: `hatch init`
+
+Chạy **trong repo dự án**. `hatch init` tạo `.hatch` **local** (đè global), chọn **một client làm orchestrator** (`--client`, mặc định `cc`), compile surfaces, và đăng ký MCP cho client chỉ-wire-được-ở-repo (`kiro` → `.kiro/settings/mcp.json`). `claude`/`codex`/`agy` đã wire một lần ở `hatch setup` (plugin / `~/.codex` / `~/.gemini`) nên init **không** ghi `.mcp.json`. Mặc định init thêm vào `.gitignore` **chỉ runtime của `.hatch`** (`board/ bus/ ledger/ compiled/ mcp/` — chat/ledger per-checkout, snippet regenerable); còn **SSOT** (`charter/registry/roles/context/workflow/protocol`) + `kb/` + surfaces thì commit bình thường để chia sẻ squad config:
+
+```bash
+cd /đường/dẫn/repo-của-bạn
+hatch init                   # orchestrator = Claude Code (mặc định); .hatch local
+hatch init --client codex    # orchestrator = Codex → khối orchestrator vào AGENTS.md
+hatch init -w kanban         # đổi workflow template (8 loại); --global để nhắm ~/.hatch
+```
+
+`--client` ghi `orchestrator: <agent-id>` vào `registry.yaml` (giữ nguyên comment) và compile đặt khối orchestrator vào surface của client đó. Các agent còn lại là team mà orchestrator điều phối qua chat. Sửa `charter.md` (sản phẩm) + `registry.yaml` (ai giữ vai gì) cho đúng đội rồi chạy lại `hatch compile`.
+
+Cơ chế resolve: lệnh `hatch` tìm `.hatch` local (đi ngược lên từ cwd); không có thì dùng `~/.hatch` global. Đặt `HATCH_HOME` để đổi vị trí global.
+
+### Bước 4 — Compile / validate / doctor
+
+```bash
+hatch compile                # SSOT → CLAUDE.md · AGENTS.md · GEMINI.md · .kiro/steering/ + đăng ký MCP
+hatch validate               # kiểm tra registry + workflow
+hatch doctor                 # agent CLI nào đã cài + đã đăng nhập (chỉ gọi lệnh auth, KHÔNG quét thư mục creds)
+```
+
+### Bước 5 — Làm việc & quan sát
+
+```bash
+# Mở coding agent NGAY TRONG workspace (vd Claude Code). Nó đọc CLAUDE.md + nạp MCP
+# (Claude qua plugin, codex/agy qua config $HOME — đã set ở `hatch setup`), rồi tự lái:
+# mở thread mỗi task, @tag đồng đội, ghi KB qua MCP.
+cd /đường/dẫn/repo-của-bạn && claude          # hoặc codex / agy / kiro-cli
+
+# Bạn (con người) quan sát read-only ở terminal khác:
+hatch chat       # live chat (threads + messages) + squad stats ở footer
+                 #   (hatch board / hatch watch = alias mở cùng view)
+hatch status     # tóm tắt thread + roster
+hatch msg --from human:operator -c '#design' "@claude-code ưu tiên streaming"   # chèn ý kiến
+```
+
+> Trên môi trường remote/CI không cài được agent thật: `./scripts/onboard.sh` dựng demo (post một thread mẫu, in `status`/`thread`) để bạn thấy luồng mà không tốn token.
+
+## CLI (`hatch`)
+
+Hatch là CLI viết bằng Go (single binary). Đây là **embedded harness**: agent là entrypoint, Hatch lo SSOT/chat/KB và phơi chúng qua MCP. Bộ lệnh mặc định (xem `internal/cli/root.go`):
+
+```bash
+./scripts/onboard.sh         # build + dựng demo workspace để thử ngay — hoặc `make onboard`
+make build                   # → bin/hatch
+bin/hatch setup               # 1 lần/máy: tạo ~/.hatch global + wire codex/agy/plugin (cc|codex|agy|kiro)
+bin/hatch init --client codex # trong repo: .hatch local + chọn orchestrator (mặc định cc) + compile (--dry-run xem trước)
+bin/hatch compile             # SSOT → CLAUDE.md / AGENTS.md / GEMINI.md / .kiro/steering
+                              #   (protocol prose: workflow + chat etiquette + DoD self-check + khối orchestrator
+                              #    cho lead) + đăng ký MCP cho kiro (.kiro/settings/mcp.json);
+                              #    snippet .hatch/mcp/* cho codex/agy (claude dùng plugin)
+bin/hatch compile --check     # CI: fail nếu output stale so với SSOT
+bin/hatch validate            # kiểm tra registry + workflow
+bin/hatch mcp --as claude-code  # MCP server (stdio) phơi tool chat + KB với danh tính agent này
+                              #   (--as bỏ trống → $HATCH_AGENT, rồi agent kind=claude đầu tiên)
+bin/hatch status              # read-only: tóm tắt thread chat (task) + roster agent
+bin/hatch chat                # read-only live TUI: threads + chat + squad stats (footer)
+bin/hatch board               # alias của `hatch chat` (cũng có `watch`)
+bin/hatch kb add --type decision --title "CSV streaming" --tags export
+bin/hatch kb query export     # kb add|query|index|link|backlinks|graph|open
+bin/hatch msg --from human --channel '#design' "Streaming hay buffer?"   # human inject vào chat
+bin/hatch inbox claude-code   # message gửi tới một agent
+bin/hatch thread <id>         # xem một thread (task)
+bin/hatch channel ls          # channel ls|show|join|leave|members
+bin/hatch search export       # full-text qua chat
+bin/hatch doc ...             # doc templates · logs · org · sync · hook · doctor
+```
+
+Luồng dùng thực tế:
 
 ```
-overclaud/
-├── README.md
-├── skill/
-│   ├── SKILL.md                    # Installable skill — the setup agent
-│   ├── templates/
-│   │   ├── global/                 # Global CLAUDE.md by role (5 templates)
-│   │   ├── project/                # Project CLAUDE.md by use case (6 templates)
-│   │   ├── cowork/                 # Cowork project instructions (3 templates)
-│   │   ├── personal-preferences/   # Settings UI text (3 templates)
-│   │   └── rules/                  # .claude/rules/ examples (3 templates)
-│   └── references/
-│       ├── layers.md               # Complete layer architecture
-│       ├── token-optimization.md   # Token efficiency techniques
-│       └── common-mistakes.md      # Anti-patterns to avoid
-├── guides/
-│   ├── layering-strategy.md        # What goes where — decision guide
-│   └── contributing-templates.md   # How to contribute new templates
-└── hatch/                          # Multi-agent upgrade (design docs)
-    ├── README.md                   # Hatch — multi-agent harness overview
-    ├── docs/                       # 00-vision … 08-roadmap
-    └── spec/                       # registry / ticket / ledger schemas
+hatch setup (1 lần/máy) → hatch init (trong repo) → mở coding agent NGAY TRONG workspace
+   (CLAUDE.md + MCP từ plugin/$HOME config đã wire nó vào chat + KB chung) → agent tự lái qua MCP
+Người xem bằng hatch board / hatch chat / hatch status; chèn ý kiến bằng hatch msg.
 ```
 
-## Contributing
+> **Lệnh archived (tùy chọn).** Bộ operator tự-lái (`run`, `plan`, `watch`, `tick`, orchestrator, workflow-engine `gate`/`escalate`/`ticket`, `ceremony`/`standup`, `ask`/`convene`, `pair`/`mob`, `presence`, `oncall`, `cost`/`budget`, `workload`/`perf`, `report`) **không** nằm trong binary mặc định. Chúng được archive sau build tag và chỉ build khi cần: `go build -tags hatch_legacy`. Khôi phục được, không bị xóa.
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+## Trạng thái implement
 
-**Template contributions are especially welcome** — the more roles and use cases covered, the more useful this becomes for the community.
+Pivot **embedded-harness** đã implement (xem [doc 20](docs/20-embedded-harness-pivot.md)):
 
-## License
+- **MCP server** (`hatch mcp --as <agent>`, stdio) trên bus/KB — tools whoami · chat_open · chat_post · chat_read · chat_inbox · chat_search · chat_channels · kb_add · kb_search (`internal/mcpserver`, `internal/cli/mcp.go`).
+- **compile đổi mục đích**: tiêm protocol (charter + roles + workflow-prose + DoD self-check + chat etiquette + khối orchestrator cho lead) vào CLAUDE.md/AGENTS.md/GEMINI.md/.kiro, kèm đăng ký MCP cho kiro (`.kiro/settings/mcp.json` merge) + snippet `.hatch/mcp/*` cho Codex/agy. Claude nạp MCP qua plugin, nên không ghi `.mcp.json`.
+- **Claude plugin** tại `plugin/` (MCP + skill `hatch-chat` + slash `/hatch`); `.claude-plugin/marketplace.json` ở repo root.
+- **chat/status read-only**: `hatch chat` = live TUI một-view (threads + chat + squad stats ở footer; `board`/`watch` là alias); `status` = tóm tắt thread + roster. Không còn run/claim/compose.
+- **Operator tự-lái archived** sau build tag `hatch_legacy` (không vào binary mặc định, khôi phục được).
+- Cả build mặc định **và** `-tags hatch_legacy` đều compile/vet/test green.
 
-MIT — use it however you want.
+Có unit + integration test, CI, Makefile. Mã nguồn: `cmd/hatch` + `internal/`. Thiết kế gốc (trước pivot) trong `docs/00`–`19`; mô hình hiện hành ở `docs/20`. Kiến trúc (Lean Hexagonal, ports & adapters): [ARCHITECTURE.md](ARCHITECTURE.md).

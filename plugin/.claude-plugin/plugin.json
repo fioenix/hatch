@@ -1,0 +1,11 @@
+{
+  "name": "hatch",
+  "displayName": "Hatch",
+  "description": "Embedded harness for a coding-agent squad: shared chat (= communication + backlog) and a knowledge base, exposed over MCP. A thread is a task; @mention teammates; recall with search.",
+  "version": "0.1.0",
+  "author": { "name": "Finolabs" },
+  "homepage": "https://github.com/fioenix/hatch",
+  "repository": "https://github.com/fioenix/hatch",
+  "license": "MIT",
+  "keywords": ["mcp", "multi-agent", "squad", "chat", "backlog", "knowledge-base"]
+}

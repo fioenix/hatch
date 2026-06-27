@@ -1,19 +1,36 @@
-# Root Makefile — overclaud skill packaging.
-# (Hatch's Go build lives in hatch/Makefile.)
+BINARY := hatch
+PKG := ./...
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -X github.com/fioenix/hatch/internal/cli.Version=$(VERSION)
 
-SKILL := overclaud.skill
+.PHONY: build install test lint vet fmt tidy clean onboard
 
-.PHONY: skill clean-skill help
+onboard: ## Build + spin up a local demo workspace (mock agent)
+	./scripts/onboard.sh
 
-skill: ## Package skill/ into overclaud.skill (reproducible build artifact)
-	rm -f $(SKILL)
-	cd . && zip -r -X -q $(SKILL) skill -x '*/.DS_Store' '.DS_Store'
-	@echo "Built $(SKILL):"
-	@unzip -l $(SKILL) | tail -1
+build: ## Build the hatch + hatch-mock binaries into ./bin
+	@mkdir -p bin
+	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/hatch
+	go build -o bin/hatch-mock ./cmd/hatch-mock
 
-clean-skill: ## Remove the built skill artifact
-	rm -f $(SKILL)
+install: ## Install hatch into GOPATH/bin
+	go install -ldflags "$(LDFLAGS)" ./cmd/hatch
 
-help: ## List targets
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n", $$1, $$2}'
+test: ## Run all tests
+	go test $(PKG)
+
+vet: ## go vet
+	go vet $(PKG)
+
+fmt: ## gofmt -s -w
+	gofmt -s -w $(shell find . -name '*.go' -not -path './vendor/*')
+
+lint: vet ## Lint: vet + gofmt check
+	@unformatted=$$(gofmt -s -l $$(find . -name '*.go' -not -path './vendor/*')); \
+	if [ -n "$$unformatted" ]; then echo "gofmt needed:"; echo "$$unformatted"; exit 1; fi
+
+tidy: ## go mod tidy
+	go mod tidy
+
+clean:
+	rm -rf bin

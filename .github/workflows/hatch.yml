@@ -3,22 +3,17 @@ name: hatch CI
 on:
   push:
     branches: ["**"]
-    paths: ["hatch/**", ".github/workflows/hatch.yml"]
   pull_request:
-    paths: ["hatch/**", ".github/workflows/hatch.yml"]
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: hatch
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-          cache-dependency-path: hatch/go.sum
+          cache-dependency-path: go.sum
       - name: Verify modules tidy
         run: |
           go mod tidy

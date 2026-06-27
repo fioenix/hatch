@@ -2,27 +2,15 @@
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability in overclaud, please report it responsibly:
+If you discover a security vulnerability in Hatch, please report it responsibly:
 
 1. **Do not** open a public GitHub issue
-2. Email: tangduyphuong@gmail.com with subject "overclaud security"
+2. Email: tangduyphuong@gmail.com with subject "hatch security"
 3. Include: description, reproduction steps, potential impact
 
 We aim to respond within 48 hours.
 
-## Scope
-
-overclaud is an instruction optimization skill. It:
-- Reads and writes local files (CLAUDE.md, settings.json, rules/)
-- Never makes external API calls or network requests
-- Never collects, stores, or transmits user data
-- Includes a PostToolUse hook that only outputs a hardcoded system message
-
-## Hook Security
-
-The auto-suggest hook processes `$TOOL_INPUT` through `jq` (JSON parser) before any string operations. User input never appears in the hook's output. The output is a hardcoded JSON system message.
-
-## Hatch (the orchestrator in `hatch/`)
+## Trust boundaries
 
 Hatch is a **local, file-based** tool: state lives in `.hatch/` and the repo;
 there is no server and no telemetry. It does, however, execute programs, so the
@@ -42,10 +30,8 @@ its `registry.yaml`/`workflow.yaml` as trusted, code-reviewed inputs (like a
   `registry.yaml` references env var names only.
 - **Transcripts.** Raw agent stdout/stderr is captured to `.hatch/runs/` and the
   ledger summary. If an agent prints a secret, it lands there — output redaction
-  is currently out of scope (tracked in `hatch/docs/17-pre-implementation.md`).
+  is currently out of scope (tracked in `docs/17-pre-implementation.md`).
   Keep `.hatch/runs/` out of public artifacts if your agents echo sensitive data.
 - **Path safety.** Ticket ids, channel names and run targets are sanitized
   before being used as path segments to prevent traversal; `hatch validate`
   rejects unsafe ticket ids.
-
-Report Hatch vulnerabilities the same way as above (subject "hatch security").

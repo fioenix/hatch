@@ -4,8 +4,12 @@ node_modules/
 __pycache__/
 promo/
 
-# Built skill artifact — reproduce with `make skill` from skill/.
-/overclaud.skill
+# Go build artifacts (make build / install / test).
+/bin/
+/hatch
+/demo-workspace/
+*.out
+*.test
 
 # Hatch: only the SSOT under .hatch is committed; everything else (run/, and any
 # stray runtime from an old build: bus/, logs/, …) is ignored via this whitelist.
